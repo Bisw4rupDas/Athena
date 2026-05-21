@@ -199,36 +199,64 @@ Rules: sectionB exactly 3 questions, sectionC exactly 2 questions. Concise. Unde
   }
 });
 
-// ─── ROUTE 2: POST /youtube ───────────────────────────────────────────────────
+// ─── ROUTE 2: POST /youtube ──────────────────────────────────────────────────
 app.post("/youtube", async (req, res) => {
   try {
     const { topics, subject, university } = req.body;
-
     const subjectLower = (subject || "").toLowerCase();
-    let channelFilter = "Gate Smashers|Neso Academy|NPTEL";
-    if (/math|calculus|algebra|statistics/.test(subjectLower)) {
-      channelFilter = "Khan Academy|PatrickJMT|3Blue1Brown|NPTEL";
-    } else if (/electron|circuit|signal|analog|digital/.test(subjectLower)) {
-      channelFilter = "Neso Academy|ALL ABOUT ELECTRONICS|Engineering Funda";
-    } else if (/os|network|algorithm|data struct|compiler/.test(subjectLower)) {
-      channelFilter = "Gate Smashers|Jenny's Lectures|Knowledge Gate|Neso Academy";
-    }
 
+    // Broad channel map covering all major engineering branches
+    let channelHint = "NPTEL";
+    if (/data struct|algorithm|os|operating|network|compiler|dbms|software eng/.test(subjectLower))
+      channelHint = "Gate Smashers";
+    else if (/electron|circuit|signal|analog|digital|vlsi|microprocess/.test(subjectLower))
+      channelHint = "Neso Academy";
+    else if (/math|calculus|algebra|statistics|probability|discrete/.test(subjectLower))
+      channelHint = "Khan Academy";
+    else if (/mechanic|thermodynamic|fluid|manufacturing|machine design|strength/.test(subjectLower))
+      channelHint = "NPTEL";
+    else if (/civil|structural|construction|survey|geotechnical|concrete/.test(subjectLower))
+      channelHint = "NPTEL";
+    else if (/chemical|reaction|mass transfer|heat transfer|process/.test(subjectLower))
+      channelHint = "NPTEL";
+    else if (/physics|quantum|optics|electromagnet/.test(subjectLower))
+      channelHint = "Physics Wallah";
+    else if (/python|java|web|programming|coding/.test(subjectLower))
+      channelHint = "CodeWithHarry";
+
+    const topicList = Array.isArray(topics) ? topics.slice(0, 6) : [{ name: topics, task: "" }];
     const results = {};
-    const topicList = Array.isArray(topics) ? topics.slice(0, 5) : [topics];
 
-    for (const topic of topicList) {
-      const query = `${topic} ${subject} engineering exam revision ${channelFilter.split("|")[0]}`;
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=2&key=${process.env.YOUTUBE_API_KEY}`;
-      const ytRes = await fetch(url);
+    for (const t of topicList) {
+      const topicName = typeof t === "object" ? (t.name || "") : t;
+      const taskDesc  = typeof t === "object" ? (t.task  || "") : "";
+      if (!topicName) continue;
+
+      const combined = taskDesc && taskDesc.toLowerCase() !== topicName.toLowerCase()
+        ? `${topicName} ${taskDesc}`
+        : topicName;
+      const query = `${combined} ${subject} ${channelHint}`;
+
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=4&key=${process.env.YOUTUBE_API_KEY}`;
+      const ytRes  = await fetch(url);
       const ytData = await ytRes.json();
-      results[topic] = (ytData.items || []).map((item) => ({
-        videoId: item.id.videoId,
-        title: item.snippet.title,
-        channel: item.snippet.channelTitle,
+      console.log("YT query:", query, "| items:", (ytData.items||[]).length, "| error:", ytData.error?.message || "none");
+
+      const allVids = (ytData.items || []).map((item) => ({
+        videoId:   item.id.videoId,
+        title:     item.snippet.title,
+        channel:   item.snippet.channelTitle,
         thumbnail: item.snippet.thumbnails.medium.url,
-        watchUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        watchUrl:  `https://www.youtube.com/watch?v=${item.id.videoId}`,
+        href:      `https://www.youtube.com/watch?v=${item.id.videoId}`,
       }));
+
+      // Filter: match any word from topic, minimum 2 chars (handles OS, CAD etc.)
+      const topicWords = topicName.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+      const matched = allVids.filter(v =>
+        topicWords.some(w => v.title.toLowerCase().includes(w))
+      );
+      results[topicName] = (matched.length ? matched : allVids).slice(0, 2);
     }
 
     res.json({ success: true, data: results });
@@ -310,7 +338,61 @@ Respond ONLY valid JSON no markdown:
     try { lesson = cleanJson(raw); }
     catch (e) { return res.status(500).json({ error: "Lesson parse failed. Try again." }); }
 
-    res.json({ success: true, data: lesson });
+    // Fetch YouTube videos specifically for this topic + task
+    let ytVideos = [];
+    try {
+      const subjectLower = (subject || "").toLowerCase();
+      // Pick best channel for the subject
+      let channelHint = "NPTEL";
+      if (/data struct|algorithm|os|operating|network|compiler|dbms|database|software/.test(subjectLower))
+        channelHint = "Gate Smashers";
+      else if (/electron|circuit|signal|analog|digital|vlsi|microprocess/.test(subjectLower))
+        channelHint = "Neso Academy";
+      else if (/math|calculus|algebra|statistics|probability|discrete/.test(subjectLower))
+        channelHint = "Khan Academy";
+      else if (/mechanic|thermodynamic|fluid|manufacturing|machine|strength of material/.test(subjectLower))
+        channelHint = "NPTEL";
+      else if (/civil|structural|construction|survey|geotechnical|rcc|concrete/.test(subjectLower))
+        channelHint = "NPTEL";
+      else if (/chemical|reaction|mass transfer|heat transfer|process control/.test(subjectLower))
+        channelHint = "NPTEL";
+      else if (/physics|quantum|optics|electromagnet/.test(subjectLower))
+        channelHint = "Physics Wallah";
+      else if (/python|java|web|android|programming|coding/.test(subjectLower))
+        channelHint = "CodeWithHarry";
+
+      // Build a tight, topic-specific query — avoid generic filler
+      // Use the task description if it adds more specificity than just the topic name
+      const topicClean = topic.trim();
+      const taskClean  = (task || "").trim();
+      const combined   = taskClean && taskClean.toLowerCase() !== topicClean.toLowerCase()
+        ? `${topicClean} ${taskClean}`
+        : topicClean;
+
+      const query = `${combined} ${subject} ${channelHint}`;
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=3&key=${process.env.YOUTUBE_API_KEY}`;
+      const ytRes = await fetch(url);
+      const ytData = await ytRes.json();
+
+      // Filter: keep only videos whose title contains at least one meaningful word from the topic
+      const topicWords = topicClean.toLowerCase().split(/\s+/).filter(w => w.length > 1);
+      const allVideos  = (ytData.items || []).map((item) => ({
+        title:   item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumb:   item.snippet.thumbnails.medium.url,
+        href:    `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      }));
+
+      // Prefer videos that match topic words; fall back to all if none match
+      const matched = allVideos.filter(v =>
+        topicWords.some(w => v.title.toLowerCase().includes(w))
+      );
+      ytVideos = (matched.length ? matched : allVideos).slice(0, 2);
+    } catch (ytErr) {
+      console.error("YT fetch in /teach:", ytErr.message, ytErr.stack);
+    }
+
+    res.json({ success: true, data: lesson, ytVideos });
   } catch (err) {
     console.error("Teach error:", err);
     res.status(500).json({ error: err.message });

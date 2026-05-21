@@ -10,6 +10,18 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
+<!-- Safe Browser Toast -->
+<div id="sb-toast" style="
+  position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+  background:#1a0a0a; border:1px solid #FF4444; border-radius:10px;
+  padding:14px 24px; font-family:monospace; font-size:13px; color:#FF6666;
+  z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none;
+  white-space:nowrap; letter-spacing:0.04em;">
+  <span id="sb-toast-msg">⚠️ Violation detected</span>
+</div>
+<style>
+  #sb-toast.sb-show { opacity: 1 !important; }
+</style>
 <body>
 
 <!-- ══════════════════════════════════════════════════════════

@@ -239,6 +239,7 @@ function redeemReward(id, cost, value) {
 
 // ─── Screen Management ────────────────────────────────────
 function showScreen(id) {
+  SafeBrowser.setScreen(id);
   document.querySelectorAll('.screen').forEach(function(s) {
     s.classList.remove('active');
     s.style.display = 'none';
@@ -508,10 +509,16 @@ function renderCharts(bp) {
 // ─── YouTube ──────────────────────────────────────────────
 async function loadYoutube() {
   try {
-    const mustDo = (battlePlan.topics || []).filter(function(t) { return (t.priority || '').toUpperCase().includes('MUST'); }).map(function(t) { return t.name; });
-    const topics = mustDo.length ? mustDo : (battlePlan.topics || []).slice(0, 4).map(function(t) { return t.name; });
+    // Send { name, task } so server can build specific queries per topic
+    const schedule = battlePlan.schedule || [];
+    const mustDo = (battlePlan.topics || []).filter(function(t) { return (t.priority || '').toUpperCase().includes('MUST'); });
+    const topicObjs = (mustDo.length ? mustDo : (battlePlan.topics || []).slice(0, 6)).map(function(t) {
+      // Find the matching schedule slot task for extra specificity
+      var slot = schedule.find(function(s) { return s.topic && s.topic.toLowerCase() === t.name.toLowerCase(); });
+      return { name: t.name, task: slot ? slot.task : '' };
+    });
 
-    const res  = await fetch('/youtube', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topics, subject: studentData.subject, university: studentData.university }) });
+    const res  = await fetch('/youtube', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topics: topicObjs, subject: studentData.subject, university: studentData.university }) });
     const json = await res.json();
 
     const ytEl = document.getElementById('youtube-content');
@@ -917,6 +924,96 @@ function downloadPaperPDF() {
 
 // ─── Interactive Lesson ───────────────────────────────────
 let lessonCache = {};
+// ─── SAFE BROWSER ────────────────────────────────────────────────────────────
+const SafeBrowser = (() => {
+  const PENALTY = 10;
+  const INACTIVITY_LIMIT = 15000; // 15 seconds
+  const EXEMPT_SCREENS = ['screen-form']; // no penalty on home screen
+
+  let inactivityTimer = null;
+  let warningTimer = null;
+  let active = false;
+  let currentScreen = 'screen-form';
+
+  function isExempt() {
+    return EXEMPT_SCREENS.includes(currentScreen);
+  }
+
+  function deductTokens(reason) {
+    if (isExempt()) return;
+    addPoints(-PENALTY, reason);
+  }
+
+  function showToast(reason) {
+    const toast = document.getElementById('sb-toast');
+    if (!toast) return;
+    toast.querySelector('#sb-toast-msg').textContent = reason;
+    toast.classList.add('sb-show');
+    setTimeout(() => toast.classList.remove('sb-show'), 3500);
+  }
+
+  function resetInactivity() {
+    if (isExempt() || isPageHidden) return;
+    clearTimeout(inactivityTimer);
+    clearTimeout(warningTimer);
+    warningTimer = setTimeout(() => {
+      if (!isExempt()) showPointsToast(0, '⚠️ Go inactive for 5 more seconds and lose 10 tokens!');
+    }, 10000);
+    inactivityTimer = setTimeout(() => {
+      if (!isExempt()) deductTokens('💤 Inactive for 15s — −10 tokens');
+    }, INACTIVITY_LIMIT);
+  }
+
+  let lastPenaltyTime = 0;
+
+  let isPageHidden = false;
+
+  function onBlur() {
+    const now = Date.now();
+    if (isExempt()) return;
+    if (now - lastPenaltyTime < 2000) return;
+    lastPenaltyTime = now;
+    isPageHidden = true;
+    clearTimeout(inactivityTimer);
+    clearTimeout(warningTimer);
+    deductTokens('👁️ Left the page — −10 tokens');
+  }
+
+  function onFocus() {
+    isPageHidden = false;
+    resetInactivity();
+  }
+
+  function init() {
+    // Tab switch / window blur
+    window.addEventListener('blur', onBlur);
+    window.addEventListener('focus', onFocus);
+    // Phone lock / minimize (Page Visibility API)
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) onBlur();
+      else onFocus();
+    });
+    // Activity reset on any input
+    ['mousemove', 'keydown', 'touchstart', 'scroll', 'click'].forEach(evt => {
+      document.addEventListener(evt, resetInactivity, { passive: true });
+    });
+    resetInactivity();
+  }
+
+  function setScreen(name) {
+    currentScreen = name;
+    if (!isExempt()) resetInactivity();
+    else {
+      clearTimeout(inactivityTimer);
+      clearTimeout(warningTimer);
+    }
+  }
+
+  return { init, setScreen };
+})();
+
+SafeBrowser.init();
+// ─────────────────────────────────────────────────────────────────────────────
 
 async function openLesson(hour) {
   const schedule = battlePlan.schedule || [];
