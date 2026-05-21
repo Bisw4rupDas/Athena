@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>⚔️ COLOSSEUM — AI Exam Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 1 — PANIC FORM
+══════════════════════════════════════════════════════════ -->
+<div id="screen-form" class="screen active">
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="logo">⚔️ COLOSSEUM</div>
+      <div class="header-tag">AI EXAM INTELLIGENCE ENGINE</div>
+    </div>
+  </header>
+
+  <main class="form-main">
+    <div class="form-hero">
+      <div class="form-hero-label">/INITIALISE_BATTLE_PROTOCOL</div>
+      <h1 class="form-title">UPLOAD YOUR PAPERS.<br/>GET YOUR BATTLE PLAN.</h1>
+      <p class="form-sub">Past papers → AI analysis → predicted paper + hour-by-hour strategy in under 2 minutes.</p>
+    </div>
+
+    <div class="form-card">
+      <div class="form-grid">
+
+        <div class="field-group">
+          <label class="field-label">UNIVERSITY</label>
+          <input type="text" id="f-university" class="field-input" placeholder="e.g. MAKAUT, VTU, Anna University…" list="uni-list" autocomplete="off" />
+          <datalist id="uni-list">
+            <option value="MAKAUT" /><option value="VTU" /><option value="Anna University" />
+            <option value="Mumbai University" /><option value="JNTU" /><option value="Amity" />
+            <option value="SNU" /><option value="Manipal" /><option value="Sharda University" />
+            <option value="UEM Kolkata" /><option value="Delhi University" /><option value="Pune University" />
+          </datalist>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">SUBJECT</label>
+          <input type="text" id="f-subject" class="field-input" placeholder="e.g. Operating Systems, DBMS…" autocomplete="off" />
+        </div>
+
+        <div class="field-group field-half">
+          <label class="field-label">SEMESTER</label>
+          <select id="f-semester" class="field-input field-select">
+            <option value="">Select</option>
+            <option>1st Semester</option><option>2nd Semester</option>
+            <option>3rd Semester</option><option>4th Semester</option>
+            <option>5th Semester</option><option>6th Semester</option>
+            <option>7th Semester</option><option>8th Semester</option>
+          </select>
+        </div>
+
+        <div class="field-group field-half">
+          <label class="field-label">EXAM FORMAT</label>
+          <select id="f-format" class="field-input field-select">
+            <option value="">Select</option>
+            <option>Mixed Format</option><option>Pure Theory</option>
+            <option>Numerical Heavy</option><option>MCQ Based</option>
+          </select>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">
+            HOURS AVAILABLE
+            <span id="mode-badge" class="mode-badge">—</span>
+          </label>
+          <div class="slider-wrap">
+            <input type="range" id="f-hours" class="field-slider" min="1" max="24" value="8" />
+            <div class="slider-labels">
+              <span>1h</span><span>6h</span><span>12h</span><span>18h</span><span>24h</span>
+            </div>
+          </div>
+          <div id="hours-display" class="hours-display">8 HOURS</div>
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">WEAK TOPICS <span class="field-hint">(comma separated)</span></label>
+          <input type="text" id="f-weak" class="field-input" placeholder="e.g. Deadlock, Semaphores, Page Replacement…" />
+        </div>
+
+        <div class="field-group">
+          <label class="field-label">UPLOAD PYQ PAPERS <span class="field-hint">(up to 5 PDFs)</span></label>
+          <div class="upload-zone" id="upload-zone">
+            <div class="upload-icon">📄</div>
+            <div class="upload-text">DRAG & DROP PDF FILES HERE</div>
+            <div class="upload-sub">or click to browse</div>
+            <input type="file" id="f-pyqs" accept=".pdf" multiple style="display:none" />
+          </div>
+          <div id="file-list" class="file-list"></div>
+        </div>
+
+      </div>
+
+      <button class="btn-primary" id="btn-generate">
+        <span class="btn-text">⚔️ GENERATE BATTLE PLAN</span>
+        <span class="btn-arrow">→</span>
+      </button>
+    </div>
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 2 — LOADING
+══════════════════════════════════════════════════════════ -->
+<div id="screen-loading" class="screen">
+  <div class="loading-inner">
+    <div id="loading-title" class="loading-title">⚔️ COLOSSEUM IS THINKING</div>
+    <div class="loading-bar-wrap">
+      <div class="loading-bar-track">
+        <div class="loading-bar-fill" id="loading-bar"></div>
+      </div>
+      <div id="loading-pct" class="loading-pct">0%</div>
+    </div>
+    <div id="loading-msg" class="loading-msg">Extracting question paper text...</div>
+    <div class="loading-grid">
+      <div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>
+      <div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 3 — BATTLE PLAN
+══════════════════════════════════════════════════════════ -->
+<div id="screen-plan" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo">⚔️ COLOSSEUM</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav" onclick="showPaperPage()">📋 ANSWER KEY</button>
+      <button class="btn-nav" onclick="showWarRoom()">🎯 WAR ROOM</button>
+      <button class="btn-nav" onclick="showSelfExam()">📝 SELF EXAM</button>
+      <button class="btn-nav" onclick="downloadPDF()">⬇ DOWNLOAD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="goHome()">← NEW PLAN</button>
+    </div>
+  </nav>
+
+  <div class="plan-content" id="plan-content">
+
+    <!-- Emergency Banner -->
+    <div id="emergency-banner" class="emergency-banner hidden">
+      🚨 EMERGENCY MODE ACTIVATED — SURVIVAL STRATEGY ONLY
+    </div>
+
+    <!-- A: University DNA -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/01</div>
+        <h2 class="section-title">UNIVERSITY EXAM DNA</h2>
+      </div>
+      <div id="dna-content" class="dna-card"></div>
+    </section>
+
+    <!-- B: Topic Analytics -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/02</div>
+        <h2 class="section-title">TOPIC ANALYTICS</h2>
+      </div>
+      <div class="charts-grid">
+        <div class="chart-box">
+          <div class="chart-label">FREQUENCY BY TOPIC</div>
+          <canvas id="chart-freq"></canvas>
+        </div>
+        <div class="chart-box">
+          <div class="chart-label">PRIORITY DISTRIBUTION</div>
+          <canvas id="chart-priority"></canvas>
+        </div>
+      </div>
+    </section>
+
+    <!-- C: Topic Priority Table -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/03</div>
+        <h2 class="section-title">TOPIC PRIORITY TABLE</h2>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="topics-table">
+          <thead>
+            <tr>
+              <th>TOPIC</th><th>PRIORITY</th><th>CONFIDENCE</th>
+              <th>MARKS</th><th>TIME</th><th>REASON</th>
+            </tr>
+          </thead>
+          <tbody id="topics-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- D: Predicted Paper -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/04</div>
+        <h2 class="section-title">AI PREDICTED QUESTION PAPER</h2>
+      </div>
+      <div id="predicted-paper" class="predicted-paper"></div>
+    </section>
+
+    <!-- E: Schedule -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/05</div>
+        <h2 class="section-title">HOUR-BY-HOUR SCHEDULE</h2>
+      </div>
+      <div id="schedule-content" class="schedule-grid"></div>
+    </section>
+
+    <!-- F: Cheat Sheets -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/06</div>
+        <h2 class="section-title">TOPIC CHEAT SHEETS</h2>
+      </div>
+      <div id="cheatsheets-content" class="cheatsheets-grid"></div>
+    </section>
+
+    <!-- H: YouTube -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/07</div>
+        <h2 class="section-title">YOUTUBE REVISION VIDEOS</h2>
+      </div>
+      <div id="youtube-content" class="youtube-grid">
+        <div class="yt-loading">Loading video recommendations...</div>
+      </div>
+    </section>
+
+    <!-- I: Senior Bhaiya -->
+    <section class="plan-section">
+      <div class="section-header">
+        <div class="section-num">/08</div>
+        <h2 class="section-title">SENIOR BHAIYA MODE 👨‍🎓</h2>
+      </div>
+      <div class="bhaiya-box">
+        <div class="bhaiya-intro">
+          Ask anything — I've been through this exam. I'll give you the real advice, yaar.
+        </div>
+        <div class="quick-chips" id="quick-chips">
+          <button class="chip" onclick="quickAsk('What topics should I absolutely not skip?')">What can I skip?</button>
+          <button class="chip" onclick="quickAsk('Give me the fastest memory tricks for this subject')">Memory tricks</button>
+          <button class="chip" onclick="quickAsk('How should I write answers to get full marks?')">Full marks tips</button>
+          <button class="chip" onclick="quickAsk('What are the most common mistakes students make?')">Common mistakes</button>
+        </div>
+        <div class="bhaiya-chat" id="bhaiya-chat"></div>
+        <div class="bhaiya-input-row">
+          <input type="text" id="bhaiya-input" class="field-input bhaiya-input" placeholder="Ask bhaiya anything..." />
+          <button class="btn-send" onclick="sendBhaiya()">SEND →</button>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 4 — WAR ROOM
+══════════════════════════════════════════════════════════ -->
+<div id="screen-warroom" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo">🎯 WAR ROOM</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
+    </div>
+  </nav>
+  <div class="warroom-layout">
+    <aside class="warroom-sidebar">
+      <div class="sidebar-title">TOPIC CHECKLIST</div>
+      <div id="warroom-checklist" class="warroom-checklist"></div>
+      <div class="warroom-progress-label">PROGRESS</div>
+      <div class="warroom-progress-bar">
+        <div class="warroom-progress-fill" id="wr-progress-fill"></div>
+      </div>
+      <div id="wr-progress-text" class="wr-progress-text">0% complete</div>
+    </aside>
+    <main class="warroom-main">
+      <div class="wr-timer-row">
+        <div class="wr-timer" id="wr-timer">00:00</div>
+        <button class="btn-timer" id="wr-timer-btn" onclick="toggleTimer()">▶ START</button>
+      </div>
+      <div id="wr-topic-name" class="wr-topic-name">SELECT A TOPIC</div>
+      <div id="wr-cheatsheet" class="wr-cheatsheet"></div>
+      <button class="btn-primary wr-done-btn" id="wr-done-btn" onclick="markDoneAndNext()" disabled>
+        ✓ MARK DONE & NEXT →
+      </button>
+    </main>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 5 — SELF EXAM
+══════════════════════════════════════════════════════════ -->
+<div id="screen-exam" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo">📝 SELF EXAM</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← EXIT EXAM</button>
+    </div>
+  </nav>
+  <div class="exam-layout">
+    <div class="exam-header-row">
+      <div class="exam-progress-text" id="exam-progress-text">Question 1 of ?</div>
+      <div class="exam-timer" id="exam-timer">10:00</div>
+      <div class="exam-score-text" id="exam-score-text">Score: 0 pts</div>
+    </div>
+    <div class="exam-card">
+      <div id="exam-section-badge" class="exam-section-badge">SECTION A</div>
+      <div id="exam-marks-badge" class="exam-marks-badge">2 MARKS</div>
+      <div id="exam-question" class="exam-question">Loading question...</div>
+      <textarea id="exam-answer" class="exam-answer" placeholder="Write your answer here..."></textarea>
+      <button class="btn-primary" id="exam-submit-btn" onclick="submitExamAnswer()">SUBMIT ANSWER →</button>
+    </div>
+    <div id="exam-feedback" class="exam-feedback hidden"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 6 — RESULTS
+══════════════════════════════════════════════════════════ -->
+<div id="screen-results" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo">🏆 RESULTS</div>
+  </nav>
+  <div class="results-layout">
+    <div class="results-hero">
+      <div id="results-emoji" class="results-emoji">🏆</div>
+      <div id="results-pct" class="results-pct">0%</div>
+      <div id="results-verdict" class="results-verdict">—</div>
+      <div id="results-score" class="results-score">0 / 0 marks</div>
+    </div>
+    <div id="results-cards" class="results-cards"></div>
+    <div class="results-actions">
+      <button class="btn-primary" onclick="showSelfExam()">↩ RETAKE EXAM</button>
+      <button class="btn-secondary" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
+      <button class="btn-secondary" onclick="goHome()">⚔️ NEW BATTLE PLAN</button>
+    </div>
+  </div>
+</div>
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 7 — PREDICTED PAPER WITH ANSWERS
+══════════════════════════════════════════════════════════ -->
+<div id="screen-paper" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo">📋 PREDICTED PAPER + ANSWERS</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav" onclick="downloadPaperPDF()">⬇ DOWNLOAD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
+    </div>
+  </nav>
+  <div class="plan-content" id="paper-page-content" style="max-width:860px;margin:0 auto;padding:40px 24px;">
+  </div>
+</div>
+<!-- SCREEN 8 — INTERACTIVE LESSON -->
+<div id="screen-teach" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo" id="teach-nav-title">📚 LESSON</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
+    </div>
+  </nav>
+  <div class="plan-content" style="max-width:780px;margin:0 auto;padding:40px 24px" id="teach-content">
+    <div style="text-align:center;padding:80px 0;font-family:var(--font-mono);color:#333">LOADING LESSON...</div>
+  </div>
+</div>
+<link rel="stylesheet" href="style.css" />
+<script src="script.js"></script>
+</body>
+</html>
