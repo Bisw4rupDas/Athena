@@ -18,6 +18,148 @@ let wrTopicDone = new Set();
 let freqChart = null;
 let priorityChart = null;
 
+// ─── Points System ────────────────────────────────────────────
+let pointsData = JSON.parse(localStorage.getItem('colosseum-points') || '{"total":0,"history":[]}');
+
+const BADGES = [
+  { id: 'first-blood',     name: 'FIRST BLOOD',      icon: '🔥', threshold: 100  },
+  { id: 'focused-fighter', name: 'FOCUSED FIGHTER',   icon: '⚡', threshold: 500  },
+  { id: 'exam-slayer',     name: 'EXAM SLAYER',        icon: '🏆', threshold: 2000 },
+  { id: 'colosseum-king',  name: 'COLOSSEUM KING',     icon: '👑', threshold: 5000 },
+];
+
+const CANTEEN_REWARDS = [
+  { id: 'canteen-10',  name: '₹10 Canteen Credit',  cost: 500,  value: '₹10'  },
+  { id: 'canteen-25',  name: '₹25 Canteen Credit',  cost: 1000, value: '₹25'  },
+  { id: 'canteen-75',  name: '₹75 Canteen Credit',  cost: 3000, value: '₹75'  },
+];
+
+function addPoints(amount, reason) {
+  pointsData.total += amount;
+  pointsData.history.unshift({ amount, reason, time: Date.now() });
+  if (pointsData.history.length > 50) pointsData.history.pop();
+  localStorage.setItem('colosseum-points', JSON.stringify(pointsData));
+  showPointsToast(amount, reason);
+}
+
+function showPointsToast(amount, reason) {
+  const existing = document.getElementById('pts-toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'pts-toast';
+  toast.style.cssText = `position:fixed;bottom:24px;right:24px;z-index:9999;background:#0d0d0d;border:1px solid #7B5CF5;padding:12px 18px;font-family:var(--font-mono);font-size:12px;color:#7B5CF5;letter-spacing:1px;animation:fadeIn .3s ease`;
+  toast.textContent = `+${amount} PTS — ${reason}`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 2500);
+}
+
+function getCurrentRank() {
+  const earned = BADGES.filter(b => pointsData.total >= b.threshold);
+  return earned.length ? earned[earned.length - 1] : { name: 'ROOKIE', icon: '🎯' };
+}
+
+function getNextBadge() {
+  return BADGES.find(b => pointsData.total < b.threshold) || null;
+}
+
+function showPointsScreen() {
+  renderPointsScreen();
+  showScreen('screen-points');
+}
+
+function renderPointsScreen() {
+  const total = pointsData.total;
+  const rank = getCurrentRank();
+  const next = getNextBadge();
+
+  // Hero
+  document.getElementById('pts-total').textContent = total.toLocaleString();
+  document.getElementById('pts-rank').textContent = `${rank.icon} ${rank.name}`;
+
+  // Badges
+  document.getElementById('pts-badges').innerHTML = BADGES.map(b => {
+    const earned = total >= b.threshold;
+    return `<div class="badge-card ${earned ? 'earned' : 'locked'}">
+      <div class="badge-icon">${b.icon}</div>
+      <div class="badge-name">${b.name}</div>
+      <div class="badge-pts">${b.threshold.toLocaleString()} pts</div>
+    </div>`;
+  }).join('');
+
+  // Next badge progress
+  const nextEl = document.getElementById('pts-next-badge');
+  if (next) {
+    const prev = BADGES[BADGES.indexOf(next) - 1];
+    const base = prev ? prev.threshold : 0;
+    const pct = Math.min(Math.round(((total - base) / (next.threshold - base)) * 100), 100);
+    nextEl.innerHTML = `
+      <div class="next-badge-label">NEXT BADGE</div>
+      <div class="next-badge-row">
+        <div class="next-badge-name">${next.icon} ${next.name}</div>
+        <div class="next-badge-pts">${total.toLocaleString()} / ${next.threshold.toLocaleString()} pts</div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%"></div></div>`;
+  } else {
+    nextEl.innerHTML = `<div style="font-family:var(--font-mono);font-size:13px;color:#7B5CF5">👑 MAX RANK ACHIEVED</div>`;
+  }
+
+  // Rewards
+  document.getElementById('pts-rewards').innerHTML = CANTEEN_REWARDS.map(r => {
+    const canAfford = total >= r.cost;
+    const need = r.cost - total;
+    return `<div class="redeem-card ${canAfford ? 'available' : ''}">
+      <div class="redeem-top">
+        <div class="redeem-name">☕ ${r.name}</div>
+        <div class="redeem-cost ${canAfford ? '' : 'locked-cost'}">${r.cost.toLocaleString()} PTS</div>
+      </div>
+      <div class="redeem-desc">${canAfford ? 'Redeem at any participating college canteen. Show QR at counter.' : `Need ${need.toLocaleString()} more points to unlock.`}</div>
+      <button class="btn-redeem ${canAfford ? '' : 'locked'}" ${canAfford ? `onclick="redeemReward('${r.id}', ${r.cost}, '${r.value}')"` : 'disabled'}>
+        ${canAfford ? 'REDEEM NOW →' : `LOCKED — ${need.toLocaleString()} MORE PTS`}
+      </button>
+    </div>`;
+  }).join('');
+
+  // History
+  document.getElementById('pts-history').innerHTML = pointsData.history.slice(0, 15).map(h => {
+    const mins = Math.round((Date.now() - h.time) / 60000);
+    const timeStr = mins < 60 ? `${mins} mins ago` : mins < 1440 ? `${Math.round(mins/60)} hours ago` : `${Math.round(mins/1440)} days ago`;
+    const isSpend = h.amount < 0;
+    return `<div class="hist-item">
+      <div class="hist-left">
+        <div class="hist-action">${h.reason}</div>
+        <div class="hist-time">${timeStr}</div>
+      </div>
+      <div class="hist-pts ${isSpend ? 'spend' : 'earn'}">${isSpend ? '' : '+'}${h.amount}</div>
+    </div>`;
+  }).join('') || `<div style="font-family:var(--font-mono);font-size:12px;color:#444;padding:20px 0">No activity yet. Start studying!</div>`;
+}
+
+let qrCountdown = null;
+function redeemReward(id, cost, value) {
+  if (pointsData.total < cost) return;
+  pointsData.total -= cost;
+  pointsData.history.unshift({ amount: -cost, reason: `Redeemed ${value} canteen credit`, time: Date.now() });
+  localStorage.setItem('colosseum-points', JSON.stringify(pointsData));
+
+  // Generate code & show QR
+  const code = 'CLM-' + Math.random().toString(36).substring(2,6).toUpperCase();
+  document.getElementById('qr-code-val').textContent = code;
+  document.getElementById('qr-value-label').textContent = `${value} OFF YOUR ORDER`;
+  document.getElementById('pts-qr-modal').classList.remove('hidden');
+
+  let secs = 600;
+  clearInterval(qrCountdown);
+  qrCountdown = setInterval(() => {
+    secs--;
+    const m = String(Math.floor(secs/60)).padStart(2,'0');
+    const s = String(secs%60).padStart(2,'0');
+    document.getElementById('qr-timer').textContent = `${m}:${s}`;
+    if (secs <= 0) { clearInterval(qrCountdown); document.getElementById('pts-qr-modal').classList.add('hidden'); }
+  }, 1000);
+
+  renderPointsScreen();
+}
+
 // ─── Screen Management ────────────────────────────────────────
 function showScreen(id) {
   document.querySelectorAll(".screen").forEach((s) => {
@@ -502,6 +644,7 @@ function wrSelectTopic(i) {
 function markDoneAndNext() {
   const topics = (battlePlan.topics || []).filter((t) => t.cheatSheet);
   wrTopicDone.add(wrTopicIndex);
+  addPoints(50, `War Room — Completed "${topics[wrTopicIndex].name}"`);
 
   const cb = document.getElementById(`wrcb-${wrTopicIndex}`);
   if (cb) cb.textContent = "✓";
@@ -530,6 +673,7 @@ function toggleTimer() {
   } else {
     wrTimerInterval = setInterval(() => {
       wrSeconds++;
+      if (wrSeconds % 60 === 0) addPoints(1, `Study timer — 1 min active`);
       const m = String(Math.floor(wrSeconds / 60)).padStart(2, "0");
       const s = String(wrSeconds % 60).padStart(2, "0");
       document.getElementById("wr-timer").textContent = `${m}:${s}`;
@@ -638,6 +782,8 @@ async function submitExamAnswer(timeout = false) {
   } catch (err) {
     // Fallback: 0 marks, show error
     examScores.push({ scored: 0, maxMarks: q.marks, question: q.question, section: q.section, missed: "Grading failed", modelAnswer: "—", tip: "Check server connection" });
+    const examPts = Math.round((grading.scored / q.marks) * 100);
+    if (examPts > 0) addPoints(examPts, `Self Exam — Q${examIndex+1} scored ${grading.scored}/${q.marks}`);
     showExamFeedback({ scored: 0, maxMarks: q.marks, modelAnswer: "—", missed: "Grading unavailable", tip: "Check server" }, q.marks);
   }
 }

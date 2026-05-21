@@ -141,6 +141,7 @@
       <button class="btn-nav" onclick="showSelfExam()">📝 SELF EXAM</button>
       <button class="btn-nav" onclick="downloadPDF()">⬇ DOWNLOAD</button>
       <button class="btn-nav btn-nav-ghost" onclick="goHome()">← NEW PLAN</button>
+      <button class="btn-nav" onclick="showPointsScreen()">⚡ POINTS</button>
     </div>
   </nav>
 
@@ -370,6 +371,38 @@
   <div class="plan-content" style="max-width:780px;margin:0 auto;padding:40px 24px" id="teach-content">
     <div style="text-align:center;padding:80px 0;font-family:var(--font-mono);color:#333">LOADING LESSON...</div>
   </div>
+</div>
+<div class="screen" id="screen-points" style="display:none">
+  <div class="nav-bar">
+    <button class="nav-back-btn" onclick="showScreen('screen-plan')">← BACK</button>
+    <div class="nav-title">⚔ COLOSSEUM POINTS</div>
+  </div>
+
+  <div class="pts-hero">
+    <div class="pts-hero-label">TOTAL POINTS</div>
+    <div class="pts-hero-number" id="pts-total">0</div>
+    <div class="pts-hero-unit">POINTS EARNED</div>
+    <div class="pts-rank" id="pts-rank">🎯 ROOKIE</div>
+  </div>
+
+  <div class="section-title">BADGES</div>
+  <div class="badges-grid" id="pts-badges"></div>
+  <div class="next-badge" id="pts-next-badge"></div>
+
+  <div class="section-title">REDEEM AT CANTEEN</div>
+  <div class="redeem-section" id="pts-rewards"></div>
+
+  <div class="pts-qr-modal hidden" id="pts-qr-modal">
+    <div class="qr-label">SCAN AT CANTEEN COUNTER</div>
+    <div id="qr-placeholder">[ QR CODE ]</div>
+    <div class="qr-code-val" id="qr-code-val">CLM-XXXX</div>
+    <div class="qr-label" id="qr-value-label">₹10 OFF</div>
+    <div class="qr-expire">Expires in <span id="qr-timer">10:00</span></div>
+    <button onclick="document.getElementById('pts-qr-modal').classList.add('hidden')">CLOSE</button>
+  </div>
+
+  <div class="section-title">RECENT ACTIVITY</div>
+  <div class="history-list" id="pts-history"></div>
 </div>
 <link rel="stylesheet" href="style.css" />
 <script src="script.js"></script>
