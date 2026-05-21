@@ -118,7 +118,7 @@ app.post("/generate", upload.array("pyqs", 5), async (req, res) => {
     const { university, subject, semester, format, hours, weakTopics } = req.body;
     const files = req.files || [];
     const isEmergency = parseInt(hours) <= 3;
-    const scheduleCount = Math.min(parseInt(hours) || 8, 8);
+    const scheduleCount = Math.min(parseInt(hours) || 6, 6);
 
     let pyqText = "";
     for (const file of files) {
@@ -134,7 +134,7 @@ ${pyqText ? "PYQ hint: " + pyqText : ""}
 
 Respond ONLY valid JSON no markdown:
 {
-  "universityDNA": "2-3 sentences on exam style",
+  "universityDNA": "2 sentences on exam style",
   "emergencyMode": ${isEmergency},
   "topicFrequency": [{"topic":"T","appearances":3,"lastYear":2023,"avgMarks":8}],
   "topics": [{
@@ -144,11 +144,9 @@ Respond ONLY valid JSON no markdown:
   }],
   "schedule":[{"hour":1,"task":"task","topic":"topic","type":"study"}]
 }
-Rules: 5 topics, priority: MUST DO/HIGH/MEDIUM/SKIP, 4 topicFrequency, ${scheduleCount} schedule items.
-${isEmergency ? `EMERGENCY MODE: ${scheduleCount} hours only. Each schedule item MUST cover a DIFFERENT topic. Spread all 5 topics across the ${scheduleCount} slots — combine topics if needed. Every slot must have a specific topic name, not "all".` : ""}
-Each schedule item MUST have a specific topic name in the "topic" field — never use "all" or "general". Be concise.`;
+Rules: 4 topics, 3 topicFrequency, ${scheduleCount} schedule items. Be concise.`;
 
-    const raw1 = await callGroqWithRetry([{ role: "user", content: prompt1 }], 0.6, 1500);
+    const raw1 = await callGroqWithRetry([{ role: "user", content: prompt1 }], 0.6, 1200);
     let battlePlan;
     try { battlePlan = cleanJson(raw1); }
     catch (e) {
@@ -161,8 +159,8 @@ Each schedule item MUST have a specific topic name in the "topic" field — neve
     // ── Call 2: Section A (5 short questions) ──
     const promptA = `Exam setter for ${subject}, ${university}, ${semester}.
 Respond ONLY valid JSON no markdown:
-{"sectionA":[{"qNo":1,"question":"Q","marks":2,"topic":"T","answer":"2-3 sentence model answer"}]}
-Rules: exactly 5 questions, cover major topics, concise answers, under 900 tokens.`;
+{"sectionA":[{"qNo":1,"question":"Q","marks":2,"topic":"T","answer":"2 sentence answer"}]}
+Rules: exactly 5 questions, concise answers, under 900 tokens.`;
 
     const rawA = await callGroqWithRetry([{ role: "user", content: promptA }], 0.5, 900);
     let sectionA = [];
@@ -174,12 +172,12 @@ Rules: exactly 5 questions, cover major topics, concise answers, under 900 token
     const promptBC = `Exam setter for ${subject}, ${university}, ${semester}.
 Respond ONLY valid JSON no markdown:
 {
-  "sectionB":[{"qNo":1,"question":"Q","marks":8,"topic":"T","answer":"4-6 sentence answer","diagram":"","numerical":""}],
-  "sectionC":[{"qNo":1,"question":"Q","marks":16,"topic":"T","answer":"6-8 sentence answer","diagram":"","numerical":""}]
+  "sectionB":[{"qNo":1,"question":"Q","marks":8,"topic":"T","answer":"4 sentence answer","diagram":"","numerical":""}],
+  "sectionC":[{"qNo":1,"question":"Q","marks":16,"topic":"T","answer":"5 sentence answer","diagram":"","numerical":""}]
 }
-Rules: sectionB exactly 3 questions, sectionC exactly 2 questions. Answers thorough but concise. Under 1500 tokens total.`;
+Rules: sectionB exactly 3 questions, sectionC exactly 2 questions. Concise. Under 1200 tokens total.`;
 
-    const rawBC = await callGroqWithRetry([{ role: "user", content: promptBC }], 0.5, 1500);
+    const rawBC = await callGroqWithRetry([{ role: "user", content: promptBC }], 0.5, 1200);
     let sectionB = [], sectionC = [];
     try {
       const parsed = cleanJson(rawBC);
@@ -245,10 +243,9 @@ app.post("/bhaiya", async (req, res) => {
   try {
     const { question, subject, university, history = [] } = req.body;
 
-    const systemPrompt = `You are Senior Bhaiya — a friendly, brilliant final-year Indian engineering student who has aced every exam at ${university || "your university"}.
-You speak like a real senior: casual, confident, a bit funny, very practical. Mix Hindi words naturally (yaar, bhai, dekh, ek kaam kar, chill maar, sahi hai).
-You give shortcuts, memory tricks, and exam tips. You NEVER give vague answers — always specific, actionable, relevant to ${subject || "the subject"}.
-Keep responses under 150 words. Be the senior everyone wishes they had.`;
+    const systemPrompt = `You are Senior Bhaiya — a friendly, brilliant final-year Indian engineering student at ${university || "your university"}.
+Speak casually, mix Hindi (yaar, bhai, dekh, chill maar). Give shortcuts, memory tricks, exam tips. Be specific and relevant to ${subject || "the subject"}.
+Keep under 120 words. Always actionable.`;
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -269,14 +266,13 @@ app.post("/grade", async (req, res) => {
   try {
     const { question, answer, maxMarks, subject } = req.body;
 
-    const prompt = `You are a strict but fair Indian university examiner grading a ${subject} exam answer.
-
+    const prompt = `Indian university examiner grading ${subject}.
 QUESTION: ${question}
 MAX MARKS: ${maxMarks}
 STUDENT ANSWER: ${answer}
 
-Respond ONLY with valid JSON (no markdown):
-{"scored":<number>,"maxMarks":${maxMarks},"modelAnswer":"ideal answer in 3-5 sentences","missed":"what student missed","tip":"one improvement tip"}`;
+Respond ONLY valid JSON no markdown:
+{"scored":<number>,"maxMarks":${maxMarks},"modelAnswer":"ideal answer in 3 sentences","missed":"what student missed","tip":"one improvement tip"}`;
 
     const raw = await callGroqWithRetry([{ role: "user", content: prompt }], 0.3, 400);
     let result;
@@ -295,20 +291,18 @@ app.post("/teach", async (req, res) => {
   try {
     const { topic, task, subject, university, hours } = req.body;
 
-    const prompt = `You are an expert Indian engineering teacher. A student has ${hours} hours left to study and needs to learn "${topic}" for their ${subject} exam at ${university} RIGHT NOW.
+    const prompt = `Expert Indian engineering teacher. Student has ${hours}h left for ${subject} exam at ${university}. Teach "${topic}" fast.
 
-Teach this topic in a fast, exam-focused way. Be like a brilliant senior who knows exactly what the examiner wants.
-
-Respond ONLY with valid JSON (no markdown, no preamble):
+Respond ONLY valid JSON no markdown:
 {
-  "hook": "One punchy sentence that makes the student instantly get what this topic is about",
-  "coreConcept": "Core concept in 4-6 sentences. Simple language.",
-  "keyPoints": ["Examiner wants this — point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
+  "hook": "One punchy sentence — what this topic is in plain English",
+  "coreConcept": "Core concept in 3-4 sentences. Simple language.",
+  "keyPoints": ["Examiner wants this — point 1", "Point 2", "Point 3", "Point 4"],
   "formula": "Key formula or algorithm. Empty string if none.",
-  "diagramSteps": "Step-by-step instructions to draw the key diagram. Empty string if none.",
-  "memoryTrick": "One clever trick or acronym to remember this topic",
-  "examWarning": "The #1 mistake students make and how to avoid it",
-  "quickQuiz": "One likely 2-mark question with its model answer in 2 sentences"
+  "diagramSteps": "How to draw the key diagram step by step. Empty string if none.",
+  "memoryTrick": "One clever trick or acronym to remember this",
+  "examWarning": "Biggest mistake students make and how to avoid it",
+  "quickQuiz": "One likely 2-mark question with 2-sentence model answer"
 }`;
 
     const raw = await callGroqWithRetry([{ role: "user", content: prompt }], 0.7, 800);
@@ -316,26 +310,8 @@ Respond ONLY with valid JSON (no markdown, no preamble):
     try { lesson = cleanJson(raw); }
     catch (e) { return res.status(500).json({ error: "Lesson parse failed. Try again." }); }
 
-    // Fetch YouTube videos for this specific topic
-    let ytVideos = [];
-    try {
-      const ytQuery = encodeURIComponent(`${topic} ${subject} exam explained`);
-      const ytRes = await fetch(
-        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${ytQuery}&type=video&maxResults=3&key=${process.env.YOUTUBE_API_KEY}`
-      );
-      const ytData = await ytRes.json();
-      ytVideos = (ytData.items || []).map(item => ({
-        title: item.snippet.title,
-        channel: item.snippet.channelTitle,
-        thumb: item.snippet.thumbnails.medium.url,
-        href: `https://www.youtube.com/watch?v=${item.id.videoId}`
-      }));
-    } catch(ytErr) {
-      console.error("YT fetch error:", ytErr.message);
-    }
-
-    res.json({ success: true, data: lesson, ytVideos });
-  } catch(err) {
+    res.json({ success: true, data: lesson });
+  } catch (err) {
     console.error("Teach error:", err);
     res.status(500).json({ error: err.message });
   }

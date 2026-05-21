@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>⚔️ COLOSSEUM — AI Exam Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="style.css" />
@@ -141,111 +141,62 @@
       <button class="btn-nav" onclick="showSelfExam()">📝 SELF EXAM</button>
       <button class="btn-nav" onclick="downloadPDF()">⬇ DOWNLOAD</button>
       <button class="btn-nav btn-nav-ghost" onclick="goHome()">← NEW PLAN</button>
-      <button class="btn-nav" onclick="showPointsScreen()">⚡ POINTS</button>
+      <button class="btn-nav btn-nav-points" onclick="showPointsScreen()">⚡ WAR CHEST</button>
     </div>
   </nav>
 
   <div class="plan-content" id="plan-content">
-
-    <!-- Emergency Banner -->
     <div id="emergency-banner" class="emergency-banner hidden">
       🚨 EMERGENCY MODE ACTIVATED — SURVIVAL STRATEGY ONLY
     </div>
 
-    <!-- A: University DNA -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/01</div>
-        <h2 class="section-title">UNIVERSITY EXAM DNA</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/01</div><h2 class="section-title">UNIVERSITY EXAM DNA</h2></div>
       <div id="dna-content" class="dna-card"></div>
     </section>
 
-    <!-- B: Topic Analytics -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/02</div>
-        <h2 class="section-title">TOPIC ANALYTICS</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/02</div><h2 class="section-title">TOPIC ANALYTICS</h2></div>
       <div class="charts-grid">
-        <div class="chart-box">
-          <div class="chart-label">FREQUENCY BY TOPIC</div>
-          <canvas id="chart-freq"></canvas>
-        </div>
-        <div class="chart-box">
-          <div class="chart-label">PRIORITY DISTRIBUTION</div>
-          <canvas id="chart-priority"></canvas>
-        </div>
+        <div class="chart-box"><div class="chart-label">FREQUENCY BY TOPIC</div><canvas id="chart-freq"></canvas></div>
+        <div class="chart-box"><div class="chart-label">PRIORITY DISTRIBUTION</div><canvas id="chart-priority"></canvas></div>
       </div>
     </section>
 
-    <!-- C: Topic Priority Table -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/03</div>
-        <h2 class="section-title">TOPIC PRIORITY TABLE</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/03</div><h2 class="section-title">TOPIC PRIORITY TABLE</h2></div>
       <div class="table-wrap">
         <table class="data-table" id="topics-table">
-          <thead>
-            <tr>
-              <th>TOPIC</th><th>PRIORITY</th><th>CONFIDENCE</th>
-              <th>MARKS</th><th>TIME</th><th>REASON</th>
-            </tr>
-          </thead>
+          <thead><tr><th>TOPIC</th><th>PRIORITY</th><th>CONFIDENCE</th><th>MARKS</th><th>TIME</th><th>REASON</th></tr></thead>
           <tbody id="topics-tbody"></tbody>
         </table>
       </div>
     </section>
 
-    <!-- D: Predicted Paper -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/04</div>
-        <h2 class="section-title">AI PREDICTED QUESTION PAPER</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/04</div><h2 class="section-title">AI PREDICTED QUESTION PAPER</h2></div>
       <div id="predicted-paper" class="predicted-paper"></div>
     </section>
 
-    <!-- E: Schedule -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/05</div>
-        <h2 class="section-title">HOUR-BY-HOUR SCHEDULE</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/05</div><h2 class="section-title">HOUR-BY-HOUR SCHEDULE</h2></div>
       <div id="schedule-content" class="schedule-grid"></div>
     </section>
 
-    <!-- F: Cheat Sheets -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/06</div>
-        <h2 class="section-title">TOPIC CHEAT SHEETS</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/06</div><h2 class="section-title">TOPIC CHEAT SHEETS</h2></div>
       <div id="cheatsheets-content" class="cheatsheets-grid"></div>
     </section>
 
-    <!-- H: YouTube -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/07</div>
-        <h2 class="section-title">YOUTUBE REVISION VIDEOS</h2>
-      </div>
-      <div id="youtube-content" class="youtube-grid">
-        <div class="yt-loading">Loading video recommendations...</div>
-      </div>
+      <div class="section-header"><div class="section-num">/07</div><h2 class="section-title">YOUTUBE REVISION VIDEOS</h2></div>
+      <div id="youtube-content" class="youtube-grid"><div class="yt-loading">Loading video recommendations...</div></div>
     </section>
 
-    <!-- I: Senior Bhaiya -->
     <section class="plan-section">
-      <div class="section-header">
-        <div class="section-num">/08</div>
-        <h2 class="section-title">SENIOR BHAIYA MODE 👨‍🎓</h2>
-      </div>
+      <div class="section-header"><div class="section-num">/08</div><h2 class="section-title">SENIOR BHAIYA MODE 👨‍🎓</h2></div>
       <div class="bhaiya-box">
-        <div class="bhaiya-intro">
-          Ask anything — I've been through this exam. I'll give you the real advice, yaar.
-        </div>
+        <div class="bhaiya-intro">Ask anything — I've been through this exam. I'll give you the real advice, yaar.</div>
         <div class="quick-chips" id="quick-chips">
           <button class="chip" onclick="quickAsk('What topics should I absolutely not skip?')">What can I skip?</button>
           <button class="chip" onclick="quickAsk('Give me the fastest memory tricks for this subject')">Memory tricks</button>
@@ -259,7 +210,6 @@
         </div>
       </div>
     </section>
-
   </div>
 </div>
 
@@ -278,9 +228,7 @@
       <div class="sidebar-title">TOPIC CHECKLIST</div>
       <div id="warroom-checklist" class="warroom-checklist"></div>
       <div class="warroom-progress-label">PROGRESS</div>
-      <div class="warroom-progress-bar">
-        <div class="warroom-progress-fill" id="wr-progress-fill"></div>
-      </div>
+      <div class="warroom-progress-bar"><div class="warroom-progress-fill" id="wr-progress-fill"></div></div>
       <div id="wr-progress-text" class="wr-progress-text">0% complete</div>
     </aside>
     <main class="warroom-main">
@@ -328,9 +276,7 @@
      SCREEN 6 — RESULTS
 ══════════════════════════════════════════════════════════ -->
 <div id="screen-results" class="screen">
-  <nav class="plan-nav">
-    <div class="plan-nav-logo">🏆 RESULTS</div>
-  </nav>
+  <nav class="plan-nav"><div class="plan-nav-logo">🏆 RESULTS</div></nav>
   <div class="results-layout">
     <div class="results-hero">
       <div id="results-emoji" class="results-emoji">🏆</div>
@@ -346,6 +292,7 @@
     </div>
   </div>
 </div>
+
 <!-- ══════════════════════════════════════════════════════════
      SCREEN 7 — PREDICTED PAPER WITH ANSWERS
 ══════════════════════════════════════════════════════════ -->
@@ -357,10 +304,12 @@
       <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
     </div>
   </nav>
-  <div class="plan-content" id="paper-page-content" style="max-width:860px;margin:0 auto;padding:40px 24px;">
-  </div>
+  <div class="plan-content" id="paper-page-content" style="max-width:860px;margin:0 auto;padding:40px 24px;"></div>
 </div>
-<!-- SCREEN 8 — INTERACTIVE LESSON -->
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 8 — INTERACTIVE LESSON
+══════════════════════════════════════════════════════════ -->
 <div id="screen-teach" class="screen">
   <nav class="plan-nav">
     <div class="plan-nav-logo" id="teach-nav-title">📚 LESSON</div>
@@ -372,39 +321,84 @@
     <div style="text-align:center;padding:80px 0;font-family:var(--font-mono);color:#333">LOADING LESSON...</div>
   </div>
 </div>
-<div class="screen" id="screen-points" style="display:none">
-  <div class="nav-bar">
-    <button class="nav-back-btn" onclick="showScreen('screen-plan')">← BACK</button>
-    <div class="nav-title">⚔ COLOSSEUM POINTS</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     SCREEN 9 — WAR CHEST (POINTS)
+══════════════════════════════════════════════════════════ -->
+<div id="screen-points" class="screen">
+
+  <!-- Nav -->
+  <nav class="plan-nav">
+    <div class="plan-nav-logo" style="font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:0.06em">⚔ WAR CHEST</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
+    </div>
+  </nav>
+
+  <div class="wc-page">
+
+    <!-- Hero balance -->
+    <div class="wc-hero">
+      <div class="wc-hero-label">YOUR BALANCE</div>
+      <div class="wc-hero-number" id="pts-total">0</div>
+      <div class="wc-hero-unit">POINTS</div>
+      <div class="wc-rank" id="pts-rank">🎯 ROOKIE</div>
+      <div class="wc-progress-wrap" id="pts-next-badge"></div>
+    </div>
+
+    <!-- Stats row -->
+    <div class="wc-stats-row">
+      <div class="wc-stat">
+        <div class="wc-stat-val" id="pts-stat-mins">0</div>
+        <div class="wc-stat-lbl">MINS STUDIED</div>
+      </div>
+      <div class="wc-stat">
+        <div class="wc-stat-val" id="pts-stat-topics">0</div>
+        <div class="wc-stat-lbl">TOPICS DONE</div>
+      </div>
+      <div class="wc-stat">
+        <div class="wc-stat-val" id="pts-stat-redeemed">0</div>
+        <div class="wc-stat-lbl">REDEEMED</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="wc-tabs">
+      <div class="wc-tab active" onclick="wcSwitchTab('all', this)">All</div>
+      <div class="wc-tab" onclick="wcSwitchTab('earned', this)">Earned</div>
+      <div class="wc-tab" onclick="wcSwitchTab('spent', this)">Redeemed</div>
+    </div>
+
+    <!-- Activity history -->
+    <div class="wc-section-label">RECENT ACTIVITY</div>
+    <div class="wc-history" id="pts-history"></div>
+
+    <!-- Canteen rewards -->
+    <div class="wc-section-label">REDEEM AT CANTEEN</div>
+    <div class="wc-rewards" id="pts-rewards"></div>
+
+    <!-- Badges -->
+    <div class="wc-section-label">BADGES</div>
+    <div class="wc-badges" id="pts-badges"></div>
+
+  </div><!-- end .wc-page -->
+
+  <!-- QR Modal -->
+  <div class="wc-qr-overlay hidden" id="pts-qr-modal">
+    <div class="wc-qr-card">
+      <div class="wc-qr-title">SCAN AT COUNTER</div>
+      <div class="wc-qr-value" id="qr-value-label">₹10 OFF</div>
+      <div class="wc-qr-box">
+        <div class="wc-qr-code" id="qr-code-val">CLM-XXXX</div>
+        <div class="wc-qr-sub">Show this code at the canteen counter</div>
+      </div>
+      <div class="wc-qr-expire">Expires in <span id="qr-timer">10:00</span></div>
+      <button class="wc-qr-close" onclick="document.getElementById('pts-qr-modal').classList.add('hidden')">CLOSE</button>
+    </div>
   </div>
 
-  <div class="pts-hero">
-    <div class="pts-hero-label">TOTAL POINTS</div>
-    <div class="pts-hero-number" id="pts-total">0</div>
-    <div class="pts-hero-unit">POINTS EARNED</div>
-    <div class="pts-rank" id="pts-rank">🎯 ROOKIE</div>
-  </div>
+</div><!-- end #screen-points -->
 
-  <div class="section-title">BADGES</div>
-  <div class="badges-grid" id="pts-badges"></div>
-  <div class="next-badge" id="pts-next-badge"></div>
-
-  <div class="section-title">REDEEM AT CANTEEN</div>
-  <div class="redeem-section" id="pts-rewards"></div>
-
-  <div class="pts-qr-modal hidden" id="pts-qr-modal">
-    <div class="qr-label">SCAN AT CANTEEN COUNTER</div>
-    <div id="qr-placeholder">[ QR CODE ]</div>
-    <div class="qr-code-val" id="qr-code-val">CLM-XXXX</div>
-    <div class="qr-label" id="qr-value-label">₹10 OFF</div>
-    <div class="qr-expire">Expires in <span id="qr-timer">10:00</span></div>
-    <button onclick="document.getElementById('pts-qr-modal').classList.add('hidden')">CLOSE</button>
-  </div>
-
-  <div class="section-title">RECENT ACTIVITY</div>
-  <div class="history-list" id="pts-history"></div>
-</div>
-<link rel="stylesheet" href="style.css" />
 <script src="script.js"></script>
 </body>
 </html>

@@ -445,51 +445,499 @@ body {
   .cheatsheets-grid { grid-template-columns: 1fr; }
   .youtube-grid { grid-template-columns: 1fr; }
 }
-/* ── Interactive Schedule ── */
-.sched-clickable:hover {
-  border-color: #7B5CF5 !important;
-  background: #0d0b1a !important;
-  transform: translateX(4px);
-  transition: all 0.2s;
-}
-.sched-cta {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: #7B5CF5;
-  letter-spacing: 2px;
-  margin-top: 6px;
-}
-.sched-break {
-  opacity: 0.4;
-}
-.sched-done-badge {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: #00FF9C;
-  letter-spacing: 2px;
-  margin-top: 6px;
-}
-.hidden { display: none !important; }
 
-/* ── Lesson Blocks ── */
-.lesson-block {
-  padding: 20px;
-  background: #0a0a0a;
-  border: 1px solid #222;
-  margin-bottom: 20px;
-  border-radius: 2px;
+/* ═══════════════════════════════════════════════════════════
+   WAR CHEST — VIVID COLORFUL REDESIGN
+   ═══════════════════════════════════════════════════════════ */
+
+/* ─── War Chest color tokens ─────────────────────────────── */
+:root {
+  --wc-gold:    #FFD93D;
+  --wc-orange:  #FF6B35;
+  --wc-pink:    #FF3CAC;
+  --wc-cyan:    #00F5FF;
+  --wc-lime:    #A8FF3E;
+  --wc-purple:  #7B5CF5;
+  --wc-blue:    #0EA5E9;
+  --wc-bg:      #0a0a10;
+  --wc-card:    #11111c;
+  --wc-border:  rgba(255,255,255,0.08);
 }
-.lesson-block-label {
+
+/* ─── Screen wrapper ─────────────────────────────────────── */
+#screen-points {
+  background: var(--wc-bg);
+  min-height: 100vh;
+}
+
+/* ─── Scrollable page body ───────────────────────────────── */
+.wc-page {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 0 0 100px;
+}
+
+/* ─── Nav override ───────────────────────────────────────── */
+#screen-points .plan-nav {
+  background: rgba(10,10,16,0.95);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--wc-border);
+}
+#screen-points .plan-nav-logo {
+  background: linear-gradient(90deg, var(--wc-gold), var(--wc-orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 16px !important;
+  letter-spacing: 0.12em !important;
+}
+
+/* ─── Hero ───────────────────────────────────────────────── */
+.wc-hero {
+  position: relative;
+  text-align: center;
+  padding: 48px 24px 36px;
+  overflow: hidden;
+}
+
+/* Animated gradient blob behind the number */
+.wc-hero::before {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 340px; height: 340px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(ellipse at center,
+    rgba(255,217,61,0.18) 0%,
+    rgba(255,107,53,0.10) 40%,
+    transparent 70%
+  );
+  animation: heroGlow 4s ease-in-out infinite alternate;
+  pointer-events: none;
+  border-radius: 50%;
+}
+@keyframes heroGlow {
+  0%   { transform: translate(-50%,-50%) scale(0.9); opacity: 0.6; }
+  100% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
+}
+
+.wc-hero-label {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 3px;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,0.35);
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.wc-hero-number {
+  font-family: var(--font-mono);
+  font-size: clamp(64px, 18vw, 96px);
   font-weight: 700;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--wc-gold) 0%, var(--wc-orange) 50%, var(--wc-pink) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  filter: drop-shadow(0 0 32px rgba(255,217,61,0.4));
+  animation: numberPulse 3s ease-in-out infinite;
+}
+@keyframes numberPulse {
+  0%,100% { filter: drop-shadow(0 0 24px rgba(255,107,53,0.35)); }
+  50%      { filter: drop-shadow(0 0 48px rgba(255,217,61,0.55)); }
+}
+
+.wc-hero-unit {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 6px;
+  color: var(--wc-gold);
+  margin-top: 4px;
+  position: relative;
+}
+
+.wc-rank {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 6px 20px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, var(--wc-pink), var(--wc-purple));
+  border-radius: 100px;
+  position: relative;
+  animation: rankShimmer 2s ease-in-out infinite;
+}
+@keyframes rankShimmer {
+  0%,100% { box-shadow: 0 0 12px rgba(255,60,172,0.4); }
+  50%      { box-shadow: 0 0 28px rgba(123,92,245,0.6); }
+}
+
+.wc-progress-wrap {
+  margin: 16px auto 0;
+  max-width: 280px;
+  position: relative;
+}
+/* Progress bar base rendered by JS — style the inner elements */
+.wc-progress-wrap .wc-prog-track {
+  height: 5px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.wc-progress-wrap .wc-prog-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--wc-cyan), var(--wc-lime));
+  border-radius: 10px;
+  transition: width 0.6s cubic-bezier(.34,1.56,.64,1);
+  box-shadow: 0 0 8px rgba(0,245,255,0.6);
+}
+.wc-progress-wrap .wc-prog-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.35);
+  letter-spacing: 2px;
+}
+
+/* ─── Stats Row ──────────────────────────────────────────── */
+.wc-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--wc-border);
+  border: 1px solid var(--wc-border);
+  margin: 0 16px 24px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.wc-stat {
+  background: var(--wc-card);
+  padding: 18px 8px;
+  text-align: center;
+}
+.wc-stat:hover {
+  background: rgba(255,255,255,0.04);
+}
+
+.wc-stat-val {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1;
   margin-bottom: 4px;
 }
-.lesson-block-body {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 14px;
-  color: #C8C8C8;
-  line-height: 1.8;
-  margin-top: 10px;
+.wc-stat:nth-child(1) .wc-stat-val { color: var(--wc-cyan); }
+.wc-stat:nth-child(2) .wc-stat-val { color: var(--wc-lime); }
+.wc-stat:nth-child(3) .wc-stat-val { color: var(--wc-pink); }
+
+.wc-stat-lbl {
+  font-family: var(--font-mono);
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.3);
 }
+
+/* ─── Tabs ───────────────────────────────────────────────── */
+.wc-tabs {
+  display: flex;
+  margin: 0 16px 8px;
+  gap: 4px;
+  background: var(--wc-card);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--wc-border);
+}
+
+.wc-tab {
+  flex: 1;
+  text-align: center;
+  padding: 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  border-radius: 7px;
+  transition: all 0.2s;
+}
+.wc-tab:hover {
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.05);
+}
+.wc-tab.active {
+  background: linear-gradient(135deg, var(--wc-purple), var(--wc-pink));
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(123,92,245,0.4);
+}
+
+/* ─── Section labels ─────────────────────────────────────── */
+.wc-section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,0.25);
+  padding: 20px 24px 8px;
+}
+
+/* ─── History list ───────────────────────────────────────── */
+.wc-history {
+  margin: 0 16px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* JS renders .wc-hist-item — style it */
+.wc-hist-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--wc-card);
+  border-radius: 10px;
+  border: 1px solid var(--wc-border);
+  transition: border-color 0.2s;
+}
+.wc-hist-item:hover { border-color: rgba(255,255,255,0.15); }
+
+.wc-hist-reason {
+  font-size: 13px;
+  color: rgba(255,255,255,0.75);
+}
+.wc-hist-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.25);
+}
+.wc-hist-pts {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+}
+.wc-hist-pts.earn { color: var(--wc-lime); }
+.wc-hist-pts.spend { color: var(--wc-pink); }
+
+/* ─── Canteen Rewards ────────────────────────────────────── */
+.wc-rewards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0 16px 8px;
+}
+
+/* JS renders .wc-reward-card */
+.wc-reward-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--wc-card);
+  border-radius: 12px;
+  border: 1px solid var(--wc-border);
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.wc-reward-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255,217,61,0.06), rgba(255,107,53,0.06));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.wc-reward-card:hover::before { opacity: 1; }
+.wc-reward-card:hover { border-color: var(--wc-gold); box-shadow: 0 0 20px rgba(255,217,61,0.15); }
+.wc-reward-card.locked { opacity: 0.4; cursor: not-allowed; }
+.wc-reward-card.locked:hover { border-color: var(--wc-border); box-shadow: none; }
+
+.wc-reward-icon {
+  font-size: 28px;
+  width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(255,217,61,0.15), rgba(255,107,53,0.15));
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+.wc-reward-body { flex: 1; }
+.wc-reward-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 3px;
+}
+.wc-reward-cost {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--wc-gold);
+  letter-spacing: 1px;
+}
+.wc-reward-action {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--wc-gold), var(--wc-orange));
+  color: #000;
+  transition: all 0.2s;
+}
+.wc-reward-action:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(255,107,53,0.4); }
+.wc-reward-action:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; transform: none; box-shadow: none; }
+
+/* ─── Badges ─────────────────────────────────────────────── */
+.wc-badges {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 0 16px 8px;
+}
+
+/* JS renders .wc-badge */
+.wc-badge {
+  padding: 16px;
+  background: var(--wc-card);
+  border-radius: 12px;
+  border: 1px solid var(--wc-border);
+  text-align: center;
+  transition: all 0.2s;
+}
+.wc-badge.earned {
+  border-color: transparent;
+  animation: badgeGlow 3s ease-in-out infinite;
+}
+@keyframes badgeGlow {
+  0%,100% { box-shadow: 0 0 0 1px rgba(255,217,61,0.3); }
+  50%      { box-shadow: 0 0 0 1px rgba(255,217,61,0.6), 0 0 20px rgba(255,217,61,0.15); }
+}
+.wc-badge.earned:nth-child(2) { --glow: var(--wc-cyan); }
+.wc-badge.earned:nth-child(3) { --glow: var(--wc-lime); }
+.wc-badge.locked {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.wc-badge-icon { font-size: 32px; margin-bottom: 8px; display: block; }
+.wc-badge-name {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.6);
+  margin-bottom: 2px;
+}
+.wc-badge-pts {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: rgba(255,255,255,0.25);
+  letter-spacing: 1px;
+}
+
+/* ─── QR Modal ───────────────────────────────────────────── */
+.wc-qr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.85);
+  backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.wc-qr-overlay.hidden { display: none !important; }
+
+.wc-qr-card {
+  background: var(--wc-card);
+  border: 1px solid var(--wc-gold);
+  border-radius: 20px;
+  padding: 36px 28px;
+  text-align: center;
+  max-width: 320px;
+  width: 100%;
+  box-shadow: 0 0 60px rgba(255,217,61,0.25), 0 0 120px rgba(255,107,53,0.1);
+  animation: qrEntrance 0.3s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes qrEntrance {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
+}
+
+.wc-qr-title {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 4px;
+  color: rgba(255,255,255,0.4);
+  margin-bottom: 8px;
+}
+.wc-qr-value {
+  font-family: var(--font-mono);
+  font-size: 40px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--wc-gold), var(--wc-orange));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 24px;
+}
+.wc-qr-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.wc-qr-code {
+  font-family: var(--font-mono);
+  font-size: 22px;
+  font-weight: 700;
+  color: #000;
+  letter-spacing: 3px;
+  margin-bottom: 8px;
+}
+.wc-qr-sub {
+  font-size: 11px;
+  color: rgba(0,0,0,0.5);
+}
+.wc-qr-expire {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--wc-orange);
+  margin-bottom: 20px;
+  letter-spacing: 1px;
+}
+.wc-qr-close {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 3px;
+  padding: 12px 32px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.5);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.wc-qr-close:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+/* ─── Points toast override ──────────────────────────────── */
+#pts-toast {
+  background: linear-gradient(135deg, rgba(0,245,255,0.12), rgba(168,255,62,0.08)) !important;
+  border: 1px solid rgba(0,245,255,0.4) !important;
+  color: var(--wc-cyan) !important;
+  border-radius: 10px !important;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 24px rgba(0,245,255,0.2);
+}
+
+/* ─── Scrollbar in wc-page ───────────────────────────────── */
+#screen-points ::-webkit-scrollbar { width: 4px; }
+#screen-points ::-webkit-scrollbar-track { background: transparent; }
+#screen-points ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
