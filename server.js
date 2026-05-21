@@ -19,12 +19,11 @@ if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) =>
-    cb(null, `${Date.now()}-${file.originalname}`),
+  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`),
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB per file
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") cb(null, true);
     else cb(new Error("Only PDFs allowed"));
@@ -45,23 +44,20 @@ async function extractPdfText(filePath) {
 }
 
 // ─── Groq API Call ────────────────────────────────────────────────────────────
-async function callGroq(messages, temperature = 0.7, maxTokens = 4096) {
-  const response = await fetch(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages,
-        temperature,
-        max_tokens: maxTokens,
-      }),
-    }
-  );
+async function callGroq(messages, temperature = 0.7, maxTokens = 1024) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: "llama-3.3-70b-versatile",
+      messages,
+      temperature,
+      max_tokens: maxTokens,
+    }),
+  });
   if (!response.ok) {
     const err = await response.text();
     throw new Error(`Groq API error: ${err}`);
@@ -70,7 +66,29 @@ async function callGroq(messages, temperature = 0.7, maxTokens = 4096) {
   return data.choices[0].message.content;
 }
 
-// ─── Clean JSON from Groq response ───────────────────────────────────────────
+// ─── Auto-retry on rate limit ─────────────────────────────────────────────────
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function callGroqWithRetry(messages, temp, maxTok) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      return await callGroq(messages, temp, maxTok);
+    } catch (e) {
+      const msg = e.message || "";
+      const wait = msg.match(/try again in (\d+(\.\d+)?)s/i);
+      if (wait) {
+        const ms = Math.ceil(parseFloat(wait[1])) * 1000 + 1000;
+        console.log(`Rate limited, retrying in ${ms}ms...`);
+        await sleep(ms);
+      } else {
+        throw e;
+      }
+    }
+  }
+  throw new Error("Rate limit retries exhausted");
+}
+
+// ─── Clean JSON ───────────────────────────────────────────────────────────────
 function cleanJson(raw) {
   let text = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const start = text.indexOf("{");
@@ -79,249 +97,146 @@ function cleanJson(raw) {
   text = text.replace(/[\x00-\x1F\x7F]/g, (c) =>
     c === "\n" || c === "\r" || c === "\t" ? c : ""
   );
-
-  // First try clean parse
-  try { return JSON.parse(text); } catch(e) {}
-
-  // Truncated array recovery: cut off broken last element and close the JSON
+  try { return JSON.parse(text); } catch (e) {}
   try {
-    // Find the last complete object in each array by trimming to last clean },
     let fixed = text;
-    // Remove trailing incomplete object — find last }, or }] and close everything after
-    fixed = fixed.replace(/,\s*\{[^}]*$/, ""); // remove trailing incomplete {
-    fixed = fixed.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, ""); // remove trailing broken key:value
-    // Close any unclosed arrays and objects
-    const opens = (fixed.match(/\[/g)||[]).length - (fixed.match(/\]/g)||[]).length;
-    const objs  = (fixed.match(/\{/g)||[]).length - (fixed.match(/\}/g)||[]).length;
+    fixed = fixed.replace(/,\s*\{[^}]*$/, "");
+    fixed = fixed.replace(/,\s*"[^"]*"\s*:\s*"[^"]*$/, "");
+    const opens = (fixed.match(/\[/g) || []).length - (fixed.match(/\]/g) || []).length;
+    const objs  = (fixed.match(/\{/g) || []).length - (fixed.match(/\}/g) || []).length;
     for (let i = 0; i < objs; i++)  fixed += "}";
     for (let i = 0; i < opens; i++) fixed += "]";
     return JSON.parse(fixed);
-  } catch(e) {
+  } catch (e) {
     throw new Error("JSON unrecoverable: " + e.message);
   }
 }
 
 // ─── ROUTE 1: POST /generate ──────────────────────────────────────────────────
-// Demo cache — if ?demo=true, return instant pre-built plan
-const DEMO_PLAN = {
-  universityDNA: "MAKAUT follows a highly predictable pattern — same 6-8 topics repeat every year with slight rephrasing. Definition + diagram + 2 points = full marks. Examiner rewards structure over depth.",
-  emergencyMode: false,
-  topicFrequency: [
-    { topic: "Process Scheduling", appearances: 5, lastYear: 2024, avgMarks: 16 },
-    { topic: "Deadlock", appearances: 5, lastYear: 2024, avgMarks: 16 },
-    { topic: "Memory Management", appearances: 4, lastYear: 2023, avgMarks: 16 },
-    { topic: "File Systems", appearances: 3, lastYear: 2023, avgMarks: 8 }
-  ],
-  topics: [
-    {
-      name: "Process Scheduling",
-      priority: "MUST DO",
-      confidence: 95,
-      expectedMarks: 16,
-      hoursNeeded: 2,
-      reason: "Appears every year — FCFS, SJF, Round Robin guaranteed",
-      cheatSheet: {
-        definition: "CPU scheduling determines which process runs next using algorithms like FCFS, SJF, Priority, and Round Robin.",
-        keyPoints: ["FCFS: non-preemptive, convoy effect", "SJF: minimum average waiting time", "Round Robin: time quantum, fairness"],
-        formulas: ["Turnaround Time = Completion - Arrival", "Waiting Time = TAT - Burst Time"],
-        diagram: "Gantt chart showing process execution timeline",
-        examTip: "Always draw the Gantt chart — it gets you 4 marks automatically"
-      },
-      selfTest: { twoMark: ["Define scheduling?", "What is convoy effect?"], eightMark: ["Compare FCFS and SJF"], sixteenMark: ["Explain all CPU scheduling algorithms with examples"] }
-    },
-    {
-      name: "Deadlock",
-      priority: "MUST DO",
-      confidence: 92,
-      expectedMarks: 16,
-      hoursNeeded: 2,
-      reason: "4 conditions + Banker's Algorithm = 16 marks, appears every semester",
-      cheatSheet: {
-        definition: "Deadlock is a situation where processes wait for each other in a circular chain, none can proceed.",
-        keyPoints: ["4 conditions: Mutual Exclusion, Hold & Wait, No Preemption, Circular Wait", "Prevention: negate one condition", "Banker's Algorithm for avoidance"],
-        formulas: ["Safety Algorithm: Need = Max - Allocation"],
-        diagram: "Resource allocation graph showing circular wait",
-        examTip: "Memorize the 4 conditions as MHNC — examiners always ask for all 4"
-      },
-      selfTest: { twoMark: ["What is deadlock?", "State 4 conditions"], eightMark: ["Explain Banker's Algorithm"], sixteenMark: ["Deadlock detection, prevention, avoidance with examples"] }
-    },
-    {
-      name: "Memory Management",
-      priority: "HIGH",
-      confidence: 85,
-      expectedMarks: 16,
-      hoursNeeded: 2,
-      reason: "Paging and segmentation asked almost every year",
-      cheatSheet: {
-        definition: "Memory management handles allocation of RAM to processes using techniques like paging, segmentation, and virtual memory.",
-        keyPoints: ["Paging: fixed size frames, no external fragmentation", "Segmentation: variable size, logical view", "Page replacement: FIFO, LRU, Optimal"],
-        formulas: ["Physical Address = Frame No × Frame Size + Offset"],
-        diagram: "Page table mapping logical to physical address",
-        examTip: "Draw the page table for every memory question — guaranteed marks"
-      },
-      selfTest: { twoMark: ["What is paging?", "Define thrashing"], eightMark: ["Explain page replacement algorithms"], sixteenMark: ["Virtual memory and demand paging with diagrams"] }
-    }
-  ],
-  schedule: [
-    { hour: 1, task: "Process Scheduling — FCFS, SJF, Round Robin with Gantt charts", topic: "Process Scheduling", type: "study" },
-    { hour: 2, task: "Deadlock — 4 conditions + Banker's Algorithm numerical", topic: "Deadlock", type: "study" },
-    { hour: 3, task: "Quick break — review notes so far", topic: "", type: "break" },
-    { hour: 4, task: "Memory Management — Paging, Segmentation, Page Replacement", topic: "Memory Management", type: "study" },
-    { hour: 5, task: "File Systems — FAT, Inode, Disk Scheduling", topic: "File Systems", type: "study" },
-    { hour: 6, task: "Self Exam — attempt predicted paper under timed conditions", topic: "All Topics", type: "study" }
-  ],
-  predictedPaper: {
-    title: "Operating Systems — Predicted Paper (MAKAUT)",
-    sectionA: [
-      { qNo: 1, question: "Define process scheduling and list its objectives.", marks: 2, topic: "Process Scheduling", answer: "Process scheduling selects which process runs on CPU next. Objectives: maximize CPU utilization, minimize waiting time, ensure fairness." },
-      { qNo: 2, question: "What is the convoy effect in FCFS scheduling?", marks: 2, topic: "Process Scheduling", answer: "Convoy effect occurs when short processes wait behind a long process in FCFS, causing high average waiting time." },
-      { qNo: 3, question: "State the four necessary conditions for deadlock.", marks: 2, topic: "Deadlock", answer: "Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait must all hold simultaneously for deadlock to occur." },
-      { qNo: 4, question: "What is thrashing in memory management?", marks: 2, topic: "Memory Management", answer: "Thrashing occurs when a process spends more time paging than executing, causing severe performance degradation." },
-      { qNo: 5, question: "Define paging and explain its advantage.", marks: 2, topic: "Memory Management", answer: "Paging divides memory into fixed-size frames eliminating external fragmentation, making memory allocation efficient." }
-    ],
-    sectionB: [
-      { qNo: 1, question: "Explain Round Robin scheduling with an example. Given processes P1(bt=4), P2(bt=3), P3(bt=5) with time quantum=2, draw the Gantt chart.", marks: 8, topic: "Process Scheduling", answer: "Round Robin assigns CPU to each process for a fixed time quantum in circular order. With quantum=2: P1 runs 0-2, P2 runs 2-4, P3 runs 4-6, P1 runs 6-8, P2 runs 8-9, P3 runs 9-11, P3 runs 11-12. Average waiting time = (4+3+6)/3 = 4.33ms. It ensures fairness and is ideal for time-sharing systems.", diagram: "Gantt chart: |P1|P2|P3|P1|P2|P3|P3| with timestamps 0,2,4,6,8,9,11,12", numerical: "" },
-      { qNo: 2, question: "Explain Banker's Algorithm for deadlock avoidance with an example.", marks: 8, topic: "Deadlock", answer: "Banker's Algorithm checks if granting a resource request keeps the system in a safe state. Need matrix = Max - Allocation. Find a process whose Need ≤ Available, allocate, release, repeat. If all processes finish, state is safe. It prevents deadlock by never entering unsafe states.", diagram: "Table showing Allocation, Max, Need, Available matrices", numerical: "Given 3 processes, Available=[3,3,2]: Check P1 Need=[7,4,3]>Available, try P2 Need=[1,2,2]≤Available, safe sequence: P2,P4,P1,P3,P0" }
-    ],
-    sectionC: [
-      { qNo: 1, question: "Explain all CPU scheduling algorithms with diagrams, advantages, disadvantages and numerical examples.", marks: 16, topic: "Process Scheduling", answer: "CPU scheduling algorithms include: (1) FCFS — processes served in arrival order, simple but convoy effect causes high waiting time. (2) SJF — shortest job first, optimal average waiting time but requires future burst time knowledge. (3) Priority Scheduling — highest priority runs first, risk of starvation solved by aging. (4) Round Robin — time quantum based, fair for time-sharing, context switch overhead. Each algorithm trades off between fairness, throughput, and response time. Draw Gantt charts for all with the same process set to compare performance.", diagram: "Gantt charts for all 4 algorithms with same input: P1(6ms), P2(8ms), P3(7ms), P4(3ms)", numerical: "FCFS WT=(0+6+14+21)/4=10.25ms, SJF WT=(0+3+9+16)/4=7ms" },
-      { qNo: 2, question: "Describe virtual memory and demand paging with page replacement algorithms (FIFO, LRU, Optimal) with examples.", marks: 16, topic: "Memory Management", answer: "Virtual memory allows processes to use more memory than physically available by storing pages on disk. Demand paging loads pages only when accessed, triggering page faults. Page replacement algorithms decide which page to evict: FIFO removes oldest page (suffers Belady's anomaly), LRU removes least recently used (best practical performance), Optimal removes page used furthest in future (theoretical best). For reference string 7,0,1,2,0,3,0,4: FIFO gives 8 faults, LRU gives 8 faults, Optimal gives 6 faults. Thrashing occurs when working set exceeds frames causing constant page faults.", diagram: "Page table showing frame allocation and page fault sequence for each algorithm", numerical: "Reference string: 1,2,3,4,1,2,5,1,2,3,4,5 with 4 frames — show FIFO page faults step by step" }
-    ]
-  }
-};
-
 app.post("/generate", upload.array("pyqs", 5), async (req, res) => {
   try {
     const { university, subject, semester, format, hours, weakTopics } = req.body;
-    const isEmergency = parseInt(hours) <= 3;
-
-    // ── DEMO MODE — instant response for stage presentation ──
-    if (req.query.demo === "true") {
-      console.log("🎭 DEMO MODE — returning cached plan");
-      await new Promise(r => setTimeout(r, 2000)); // fake 2s "thinking"
-      return res.json({ success: true, data: DEMO_PLAN });
-    }
-
     const files = req.files || [];
+    const isEmergency = parseInt(hours) <= 3;
+    const scheduleCount = Math.min(parseInt(hours) || 8, 8);
 
-    // Extract PDF text
     let pyqText = "";
     for (const file of files) {
       const text = await extractPdfText(file.path);
-      pyqText += `\n--- ${file.originalname} ---\n${text.slice(0, 300)}`;
+      pyqText += text.slice(0, 200);
       fs.unlink(file.path, () => {});
     }
 
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+    // ── Call 1: Battle Plan (topics + schedule) ──
+    const prompt1 = `Expert exam analyst. Indian engineering university.
+University: ${university} | Subject: ${subject} | Sem: ${semester} | Format: ${format} | Hours: ${hours} | Weak: ${weakTopics || "None"}
+${pyqText ? "PYQ hint: " + pyqText : ""}
 
-    // Auto-retry on rate limit
-    async function callWithRetry(messages, temp, maxTokens, attempt = 0) {
-      try {
-        return await callGroq(messages, temp, maxTokens);
-      } catch (e) {
-        if (attempt < 4 && e.message && e.message.includes("Rate limit")) {
-          const wait = (attempt + 1) * 8000; // 8s, 16s, 24s, 32s
-          console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${attempt + 1})...`);
-          await sleep(wait);
-          return callWithRetry(messages, temp, maxTokens, attempt + 1);
-        }
-        throw e;
-      }
-    }
-
-    // ── Call 1: Topics + Schedule ──────────────────────────────
-    const prompt1 = `You are an expert AI exam analyst for Indian engineering universities.
-University: ${university}, Subject: ${subject}, Semester: ${semester}, Format: ${format}, Hours: ${hours}
-Weak Topics: ${weakTopics || "None"}
-PYQ snippet: ${pyqText.slice(0, 300) || "None uploaded"}
-
-Respond ONLY with valid JSON, no markdown, no trailing commas:
+Respond ONLY valid JSON no markdown:
 {
-  "universityDNA": "2 sentences about this university exam style",
+  "universityDNA": "2-3 sentences on exam style",
   "emergencyMode": ${isEmergency},
-  "topicFrequency": [
-    {"topic": "Topic Name", "appearances": 4, "lastYear": 2023, "avgMarks": 16}
-  ],
-  "topics": [
-    {
-      "name": "Topic Name",
-      "priority": "MUST DO",
-      "confidence": 90,
-      "expectedMarks": 16,
-      "hoursNeeded": 2,
-      "reason": "One sentence",
-      "cheatSheet": {
-        "definition": "One sentence",
-        "keyPoints": ["Point 1", "Point 2", "Point 3"],
-        "formulas": ["Formula 1"],
-        "diagram": "What to draw",
-        "examTip": "One tip"
-      },
-      "selfTest": {
-        "twoMark": ["Q1", "Q2"],
-        "eightMark": ["Q1"],
-        "sixteenMark": ["Q1"]
-      }
-    }
-  ],
-  "schedule": [
-    {"hour": 1, "task": "Task", "topic": "Topic", "type": "study"}
-  ]
+  "topicFrequency": [{"topic":"T","appearances":3,"lastYear":2023,"avgMarks":8}],
+  "topics": [{
+    "name":"Topic","priority":"MUST DO","confidence":85,"expectedMarks":16,"hoursNeeded":2,"reason":"short reason",
+    "cheatSheet":{"definition":"def","keyPoints":["p1","p2","p3"],"formulas":["f1"],"diagram":"draw this","examTip":"tip"},
+    "selfTest":{"twoMark":["Q1"],"eightMark":["Q1"],"sixteenMark":["Q1"]}
+  }],
+  "schedule":[{"hour":1,"task":"task","topic":"topic","type":"study"}]
 }
-Rules: EXACTLY 4 topics, EXACTLY ${Math.min(parseInt(hours)||6, 6)} schedule items. Under 2000 tokens.`;
+Rules: 5 topics, priority: MUST DO/HIGH/MEDIUM/SKIP, 4 topicFrequency, ${scheduleCount} schedule items.
+${isEmergency ? `EMERGENCY MODE: ${scheduleCount} hours only. Each schedule item MUST cover a DIFFERENT topic. Spread all 5 topics across the ${scheduleCount} slots — combine topics if needed. Every slot must have a specific topic name, not "all".` : ""}
+Each schedule item MUST have a specific topic name in the "topic" field — never use "all" or "general". Be concise.`;
 
-    console.log("⚡ Call 1: Topics + Schedule...");
-    const raw1 = await callWithRetry([{ role: "user", content: prompt1 }], 0.6, 2000);
+    const raw1 = await callGroqWithRetry([{ role: "user", content: prompt1 }], 0.6, 1500);
     let battlePlan;
     try { battlePlan = cleanJson(raw1); }
-    catch (e) { return res.status(500).json({ error: "Analysis failed. Please try again." }); }
+    catch (e) {
+      console.error("JSON parse failed:", e.message);
+      return res.status(500).json({ error: "AI response parsing failed. Try again." });
+    }
 
-    // ── Call 2: Section A + B ──────────────────────────────────
-    const prompt2 = `You are an exam paper setter for ${subject} at ${university}.
-Respond ONLY with valid JSON, no markdown:
+    await sleep(1500);
+
+    // ── Call 2: Section A (5 short questions) ──
+    const promptA = `Exam setter for ${subject}, ${university}, ${semester}.
+Respond ONLY valid JSON no markdown:
+{"sectionA":[{"qNo":1,"question":"Q","marks":2,"topic":"T","answer":"2-3 sentence model answer"}]}
+Rules: exactly 5 questions, cover major topics, concise answers, under 900 tokens.`;
+
+    const rawA = await callGroqWithRetry([{ role: "user", content: promptA }], 0.5, 900);
+    let sectionA = [];
+    try { sectionA = cleanJson(rawA).sectionA || []; } catch (e) { console.error("SectionA fail:", e.message); }
+
+    await sleep(1500);
+
+    // ── Call 3: Section B + C together ──
+    const promptBC = `Exam setter for ${subject}, ${university}, ${semester}.
+Respond ONLY valid JSON no markdown:
 {
-  "sectionA": [
-    {"qNo": 1, "question": "Question", "marks": 2, "topic": "Topic", "answer": "2-3 sentence model answer"}
-  ],
-  "sectionB": [
-    {"qNo": 1, "question": "Question", "marks": 8, "topic": "Topic", "answer": "4-5 sentence answer", "diagram": "diagram description or empty string", "numerical": "working or empty string"}
-  ]
+  "sectionB":[{"qNo":1,"question":"Q","marks":8,"topic":"T","answer":"4-6 sentence answer","diagram":"","numerical":""}],
+  "sectionC":[{"qNo":1,"question":"Q","marks":16,"topic":"T","answer":"6-8 sentence answer","diagram":"","numerical":""}]
 }
-Rules: EXACTLY 5 sectionA, EXACTLY 3 sectionB. Under 2000 tokens.`;
+Rules: sectionB exactly 3 questions, sectionC exactly 2 questions. Answers thorough but concise. Under 1500 tokens total.`;
 
-    console.log("⚡ Call 2: Section A + B...");
-    const raw2 = await callWithRetry([{ role: "user", content: prompt2 }], 0.6, 2000);
-    let part2 = { sectionA: [], sectionB: [] };
-    try { part2 = cleanJson(raw2); } catch (e) { console.error("Part2 parse fail:", e.message); }
-
-    // ── Call 3: Section C ──────────────────────────────────────
-    const prompt3 = `You are an exam paper setter for ${subject} at ${university}.
-Respond ONLY with valid JSON, no markdown:
-{
-  "sectionC": [
-    {"qNo": 1, "question": "Question", "marks": 16, "topic": "Topic", "answer": "6-8 sentence comprehensive answer", "diagram": "diagram description or empty string", "numerical": "working or empty string"}
-  ]
-}
-Rules: EXACTLY 3 sectionC questions. Under 1500 tokens.`;
-
-    console.log("⚡ Call 3: Section C...");
-    const raw3 = await callWithRetry([{ role: "user", content: prompt3 }], 0.6, 1500);
-    let part3 = { sectionC: [] };
-    try { part3 = cleanJson(raw3); } catch (e) { console.error("Part3 parse fail:", e.message); }
+    const rawBC = await callGroqWithRetry([{ role: "user", content: promptBC }], 0.5, 1500);
+    let sectionB = [], sectionC = [];
+    try {
+      const parsed = cleanJson(rawBC);
+      sectionB = parsed.sectionB || [];
+      sectionC = parsed.sectionC || [];
+    } catch (e) { console.error("SectionBC fail:", e.message); }
 
     battlePlan.predictedPaper = {
-      title: `${subject} — Predicted Paper (${university})`,
-      sectionA: part2.sectionA || [],
-      sectionB: part2.sectionB || [],
-      sectionC: part3.sectionC || [],
+      title: `${subject} — Predicted Question Paper (${university})`,
+      sectionA,
+      sectionB,
+      sectionC,
     };
 
-    console.log("✅ Battle plan ready!");
     res.json({ success: true, data: battlePlan });
-
   } catch (err) {
     console.error("Generate error:", err);
     res.status(500).json({ error: err.message || "Generation failed" });
+  }
+});
+
+// ─── ROUTE 2: POST /youtube ───────────────────────────────────────────────────
+app.post("/youtube", async (req, res) => {
+  try {
+    const { topics, subject, university } = req.body;
+
+    const subjectLower = (subject || "").toLowerCase();
+    let channelFilter = "Gate Smashers|Neso Academy|NPTEL";
+    if (/math|calculus|algebra|statistics/.test(subjectLower)) {
+      channelFilter = "Khan Academy|PatrickJMT|3Blue1Brown|NPTEL";
+    } else if (/electron|circuit|signal|analog|digital/.test(subjectLower)) {
+      channelFilter = "Neso Academy|ALL ABOUT ELECTRONICS|Engineering Funda";
+    } else if (/os|network|algorithm|data struct|compiler/.test(subjectLower)) {
+      channelFilter = "Gate Smashers|Jenny's Lectures|Knowledge Gate|Neso Academy";
+    }
+
+    const results = {};
+    const topicList = Array.isArray(topics) ? topics.slice(0, 5) : [topics];
+
+    for (const topic of topicList) {
+      const query = `${topic} ${subject} engineering exam revision ${channelFilter.split("|")[0]}`;
+      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=2&key=${process.env.YOUTUBE_API_KEY}`;
+      const ytRes = await fetch(url);
+      const ytData = await ytRes.json();
+      results[topic] = (ytData.items || []).map((item) => ({
+        videoId: item.id.videoId,
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumbnail: item.snippet.thumbnails.medium.url,
+        watchUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
+      }));
+    }
+
+    res.json({ success: true, data: results });
+  } catch (err) {
+    console.error("YouTube error:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -330,18 +245,18 @@ app.post("/bhaiya", async (req, res) => {
   try {
     const { question, subject, university, history = [] } = req.body;
 
-    const systemPrompt = `You are Senior Bhaiya — a friendly, brilliant final-year Indian engineering student who has aced every exam at ${university || "your university"}. 
+    const systemPrompt = `You are Senior Bhaiya — a friendly, brilliant final-year Indian engineering student who has aced every exam at ${university || "your university"}.
 You speak like a real senior: casual, confident, a bit funny, very practical. Mix Hindi words naturally (yaar, bhai, dekh, ek kaam kar, chill maar, sahi hai).
 You give shortcuts, memory tricks, and exam tips. You NEVER give vague answers — always specific, actionable, relevant to ${subject || "the subject"}.
 Keep responses under 150 words. Be the senior everyone wishes they had.`;
 
     const messages = [
       { role: "system", content: systemPrompt },
-      ...history,
+      ...history.slice(-6),
       { role: "user", content: question },
     ];
 
-    const reply = await callGroq(messages, 0.85, 512);
+    const reply = await callGroqWithRetry(messages, 0.85, 400);
     res.json({ success: true, reply });
   } catch (err) {
     console.error("Bhaiya error:", err);
@@ -360,29 +275,13 @@ QUESTION: ${question}
 MAX MARKS: ${maxMarks}
 STUDENT ANSWER: ${answer}
 
-Grade this answer strictly as an Indian university examiner would. 
-
 Respond ONLY with valid JSON (no markdown):
-{
-  "scored": <number>,
-  "maxMarks": ${maxMarks},
-  "modelAnswer": "The ideal answer in 3-5 sentences",
-  "missed": "What the student missed or got wrong",
-  "tip": "One specific improvement tip for next time"
-}`;
+{"scored":<number>,"maxMarks":${maxMarks},"modelAnswer":"ideal answer in 3-5 sentences","missed":"what student missed","tip":"one improvement tip"}`;
 
-    const raw = await callGroq(
-      [{ role: "user", content: prompt }],
-      0.3,
-      512
-    );
-
+    const raw = await callGroqWithRetry([{ role: "user", content: prompt }], 0.3, 400);
     let result;
-    try {
-      result = cleanJson(raw);
-    } catch (e) {
-      return res.status(500).json({ error: "Grading parse failed" });
-    }
+    try { result = cleanJson(raw); }
+    catch (e) { return res.status(500).json({ error: "Grading parse failed" }); }
 
     res.json({ success: true, data: result });
   } catch (err) {
@@ -390,7 +289,8 @@ Respond ONLY with valid JSON (no markdown):
     res.status(500).json({ error: err.message });
   }
 });
-// ─── ROUTE 5: POST /teach ───────────────────────────────────────────────────
+
+// ─── ROUTE 5: POST /teach ────────────────────────────────────────────────────
 app.post("/teach", async (req, res) => {
   try {
     const { topic, task, subject, university, hours } = req.body;
@@ -402,26 +302,45 @@ Teach this topic in a fast, exam-focused way. Be like a brilliant senior who kno
 Respond ONLY with valid JSON (no markdown, no preamble):
 {
   "hook": "One punchy sentence that makes the student instantly get what this topic is about",
-  "coreConcept": "The core concept explained in 4-6 sentences. Simple language. No jargon without explanation.",
-  "keyPoints": ["Exactly what examiner wants — point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
-  "formula": "The most important formula or algorithm if applicable. Empty string if not needed.",
-  "diagramSteps": "Step-by-step instructions to draw the most important diagram for this topic. Empty string if no diagram needed.",
-  "memoryTrick": "One clever trick, acronym, or analogy to remember this topic forever",
-  "examWarning": "The #1 mistake students make on this topic in exams and how to avoid it",
-  "quickQuiz": "One 2-mark question the examiner is likely to ask, with its model answer in 2 sentences"
+  "coreConcept": "Core concept in 4-6 sentences. Simple language.",
+  "keyPoints": ["Examiner wants this — point 1", "Point 2", "Point 3", "Point 4", "Point 5"],
+  "formula": "Key formula or algorithm. Empty string if none.",
+  "diagramSteps": "Step-by-step instructions to draw the key diagram. Empty string if none.",
+  "memoryTrick": "One clever trick or acronym to remember this topic",
+  "examWarning": "The #1 mistake students make and how to avoid it",
+  "quickQuiz": "One likely 2-mark question with its model answer in 2 sentences"
 }`;
 
-    const raw = await callGroq([{ role: "user", content: prompt }], 0.7, 2000);
+    const raw = await callGroqWithRetry([{ role: "user", content: prompt }], 0.7, 800);
     let lesson;
     try { lesson = cleanJson(raw); }
-    catch(e) { return res.status(500).json({ error: "Lesson parse failed. Try again." }); }
+    catch (e) { return res.status(500).json({ error: "Lesson parse failed. Try again." }); }
 
-    res.json({ success: true, data: lesson });
+    // Fetch YouTube videos for this specific topic
+    let ytVideos = [];
+    try {
+      const ytQuery = encodeURIComponent(`${topic} ${subject} exam explained`);
+      const ytRes = await fetch(
+        `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${ytQuery}&type=video&maxResults=3&key=${process.env.YOUTUBE_API_KEY}`
+      );
+      const ytData = await ytRes.json();
+      ytVideos = (ytData.items || []).map(item => ({
+        title: item.snippet.title,
+        channel: item.snippet.channelTitle,
+        thumb: item.snippet.thumbnails.medium.url,
+        href: `https://www.youtube.com/watch?v=${item.id.videoId}`
+      }));
+    } catch(ytErr) {
+      console.error("YT fetch error:", ytErr.message);
+    }
+
+    res.json({ success: true, data: lesson, ytVideos });
   } catch(err) {
     console.error("Teach error:", err);
     res.status(500).json({ error: err.message });
   }
 });
+
 // ─── Start Server ─────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`⚔️  COLOSSEUM running at http://localhost:${PORT}`);
