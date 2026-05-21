@@ -102,30 +102,142 @@ function cleanJson(raw) {
 }
 
 // ─── ROUTE 1: POST /generate ──────────────────────────────────────────────────
+// Demo cache — if ?demo=true, return instant pre-built plan
+const DEMO_PLAN = {
+  universityDNA: "MAKAUT follows a highly predictable pattern — same 6-8 topics repeat every year with slight rephrasing. Definition + diagram + 2 points = full marks. Examiner rewards structure over depth.",
+  emergencyMode: false,
+  topicFrequency: [
+    { topic: "Process Scheduling", appearances: 5, lastYear: 2024, avgMarks: 16 },
+    { topic: "Deadlock", appearances: 5, lastYear: 2024, avgMarks: 16 },
+    { topic: "Memory Management", appearances: 4, lastYear: 2023, avgMarks: 16 },
+    { topic: "File Systems", appearances: 3, lastYear: 2023, avgMarks: 8 }
+  ],
+  topics: [
+    {
+      name: "Process Scheduling",
+      priority: "MUST DO",
+      confidence: 95,
+      expectedMarks: 16,
+      hoursNeeded: 2,
+      reason: "Appears every year — FCFS, SJF, Round Robin guaranteed",
+      cheatSheet: {
+        definition: "CPU scheduling determines which process runs next using algorithms like FCFS, SJF, Priority, and Round Robin.",
+        keyPoints: ["FCFS: non-preemptive, convoy effect", "SJF: minimum average waiting time", "Round Robin: time quantum, fairness"],
+        formulas: ["Turnaround Time = Completion - Arrival", "Waiting Time = TAT - Burst Time"],
+        diagram: "Gantt chart showing process execution timeline",
+        examTip: "Always draw the Gantt chart — it gets you 4 marks automatically"
+      },
+      selfTest: { twoMark: ["Define scheduling?", "What is convoy effect?"], eightMark: ["Compare FCFS and SJF"], sixteenMark: ["Explain all CPU scheduling algorithms with examples"] }
+    },
+    {
+      name: "Deadlock",
+      priority: "MUST DO",
+      confidence: 92,
+      expectedMarks: 16,
+      hoursNeeded: 2,
+      reason: "4 conditions + Banker's Algorithm = 16 marks, appears every semester",
+      cheatSheet: {
+        definition: "Deadlock is a situation where processes wait for each other in a circular chain, none can proceed.",
+        keyPoints: ["4 conditions: Mutual Exclusion, Hold & Wait, No Preemption, Circular Wait", "Prevention: negate one condition", "Banker's Algorithm for avoidance"],
+        formulas: ["Safety Algorithm: Need = Max - Allocation"],
+        diagram: "Resource allocation graph showing circular wait",
+        examTip: "Memorize the 4 conditions as MHNC — examiners always ask for all 4"
+      },
+      selfTest: { twoMark: ["What is deadlock?", "State 4 conditions"], eightMark: ["Explain Banker's Algorithm"], sixteenMark: ["Deadlock detection, prevention, avoidance with examples"] }
+    },
+    {
+      name: "Memory Management",
+      priority: "HIGH",
+      confidence: 85,
+      expectedMarks: 16,
+      hoursNeeded: 2,
+      reason: "Paging and segmentation asked almost every year",
+      cheatSheet: {
+        definition: "Memory management handles allocation of RAM to processes using techniques like paging, segmentation, and virtual memory.",
+        keyPoints: ["Paging: fixed size frames, no external fragmentation", "Segmentation: variable size, logical view", "Page replacement: FIFO, LRU, Optimal"],
+        formulas: ["Physical Address = Frame No × Frame Size + Offset"],
+        diagram: "Page table mapping logical to physical address",
+        examTip: "Draw the page table for every memory question — guaranteed marks"
+      },
+      selfTest: { twoMark: ["What is paging?", "Define thrashing"], eightMark: ["Explain page replacement algorithms"], sixteenMark: ["Virtual memory and demand paging with diagrams"] }
+    }
+  ],
+  schedule: [
+    { hour: 1, task: "Process Scheduling — FCFS, SJF, Round Robin with Gantt charts", topic: "Process Scheduling", type: "study" },
+    { hour: 2, task: "Deadlock — 4 conditions + Banker's Algorithm numerical", topic: "Deadlock", type: "study" },
+    { hour: 3, task: "Quick break — review notes so far", topic: "", type: "break" },
+    { hour: 4, task: "Memory Management — Paging, Segmentation, Page Replacement", topic: "Memory Management", type: "study" },
+    { hour: 5, task: "File Systems — FAT, Inode, Disk Scheduling", topic: "File Systems", type: "study" },
+    { hour: 6, task: "Self Exam — attempt predicted paper under timed conditions", topic: "All Topics", type: "study" }
+  ],
+  predictedPaper: {
+    title: "Operating Systems — Predicted Paper (MAKAUT)",
+    sectionA: [
+      { qNo: 1, question: "Define process scheduling and list its objectives.", marks: 2, topic: "Process Scheduling", answer: "Process scheduling selects which process runs on CPU next. Objectives: maximize CPU utilization, minimize waiting time, ensure fairness." },
+      { qNo: 2, question: "What is the convoy effect in FCFS scheduling?", marks: 2, topic: "Process Scheduling", answer: "Convoy effect occurs when short processes wait behind a long process in FCFS, causing high average waiting time." },
+      { qNo: 3, question: "State the four necessary conditions for deadlock.", marks: 2, topic: "Deadlock", answer: "Mutual Exclusion, Hold and Wait, No Preemption, and Circular Wait must all hold simultaneously for deadlock to occur." },
+      { qNo: 4, question: "What is thrashing in memory management?", marks: 2, topic: "Memory Management", answer: "Thrashing occurs when a process spends more time paging than executing, causing severe performance degradation." },
+      { qNo: 5, question: "Define paging and explain its advantage.", marks: 2, topic: "Memory Management", answer: "Paging divides memory into fixed-size frames eliminating external fragmentation, making memory allocation efficient." }
+    ],
+    sectionB: [
+      { qNo: 1, question: "Explain Round Robin scheduling with an example. Given processes P1(bt=4), P2(bt=3), P3(bt=5) with time quantum=2, draw the Gantt chart.", marks: 8, topic: "Process Scheduling", answer: "Round Robin assigns CPU to each process for a fixed time quantum in circular order. With quantum=2: P1 runs 0-2, P2 runs 2-4, P3 runs 4-6, P1 runs 6-8, P2 runs 8-9, P3 runs 9-11, P3 runs 11-12. Average waiting time = (4+3+6)/3 = 4.33ms. It ensures fairness and is ideal for time-sharing systems.", diagram: "Gantt chart: |P1|P2|P3|P1|P2|P3|P3| with timestamps 0,2,4,6,8,9,11,12", numerical: "" },
+      { qNo: 2, question: "Explain Banker's Algorithm for deadlock avoidance with an example.", marks: 8, topic: "Deadlock", answer: "Banker's Algorithm checks if granting a resource request keeps the system in a safe state. Need matrix = Max - Allocation. Find a process whose Need ≤ Available, allocate, release, repeat. If all processes finish, state is safe. It prevents deadlock by never entering unsafe states.", diagram: "Table showing Allocation, Max, Need, Available matrices", numerical: "Given 3 processes, Available=[3,3,2]: Check P1 Need=[7,4,3]>Available, try P2 Need=[1,2,2]≤Available, safe sequence: P2,P4,P1,P3,P0" }
+    ],
+    sectionC: [
+      { qNo: 1, question: "Explain all CPU scheduling algorithms with diagrams, advantages, disadvantages and numerical examples.", marks: 16, topic: "Process Scheduling", answer: "CPU scheduling algorithms include: (1) FCFS — processes served in arrival order, simple but convoy effect causes high waiting time. (2) SJF — shortest job first, optimal average waiting time but requires future burst time knowledge. (3) Priority Scheduling — highest priority runs first, risk of starvation solved by aging. (4) Round Robin — time quantum based, fair for time-sharing, context switch overhead. Each algorithm trades off between fairness, throughput, and response time. Draw Gantt charts for all with the same process set to compare performance.", diagram: "Gantt charts for all 4 algorithms with same input: P1(6ms), P2(8ms), P3(7ms), P4(3ms)", numerical: "FCFS WT=(0+6+14+21)/4=10.25ms, SJF WT=(0+3+9+16)/4=7ms" },
+      { qNo: 2, question: "Describe virtual memory and demand paging with page replacement algorithms (FIFO, LRU, Optimal) with examples.", marks: 16, topic: "Memory Management", answer: "Virtual memory allows processes to use more memory than physically available by storing pages on disk. Demand paging loads pages only when accessed, triggering page faults. Page replacement algorithms decide which page to evict: FIFO removes oldest page (suffers Belady's anomaly), LRU removes least recently used (best practical performance), Optimal removes page used furthest in future (theoretical best). For reference string 7,0,1,2,0,3,0,4: FIFO gives 8 faults, LRU gives 8 faults, Optimal gives 6 faults. Thrashing occurs when working set exceeds frames causing constant page faults.", diagram: "Page table showing frame allocation and page fault sequence for each algorithm", numerical: "Reference string: 1,2,3,4,1,2,5,1,2,3,4,5 with 4 frames — show FIFO page faults step by step" }
+    ]
+  }
+};
+
 app.post("/generate", upload.array("pyqs", 5), async (req, res) => {
   try {
     const { university, subject, semester, format, hours, weakTopics } = req.body;
-    const files = req.files || [];
     const isEmergency = parseInt(hours) <= 3;
-    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-    // Extract text from all uploaded PDFs
+    // ── DEMO MODE — instant response for stage presentation ──
+    if (req.query.demo === "true") {
+      console.log("🎭 DEMO MODE — returning cached plan");
+      await new Promise(r => setTimeout(r, 2000)); // fake 2s "thinking"
+      return res.json({ success: true, data: DEMO_PLAN });
+    }
+
+    const files = req.files || [];
+
+    // Extract PDF text
     let pyqText = "";
     for (const file of files) {
       const text = await extractPdfText(file.path);
-      pyqText += `\n\n--- Paper: ${file.originalname} ---\n${text.slice(0, 300)}`;
+      pyqText += `\n--- ${file.originalname} ---\n${text.slice(0, 300)}`;
       fs.unlink(file.path, () => {});
     }
 
-    // ── Call 1: Analysis + Topics + Schedule (NO predicted paper) ──
+    const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+    // Auto-retry on rate limit
+    async function callWithRetry(messages, temp, maxTokens, attempt = 0) {
+      try {
+        return await callGroq(messages, temp, maxTokens);
+      } catch (e) {
+        if (attempt < 4 && e.message && e.message.includes("Rate limit")) {
+          const wait = (attempt + 1) * 8000; // 8s, 16s, 24s, 32s
+          console.log(`Rate limited, retrying in ${wait/1000}s (attempt ${attempt + 1})...`);
+          await sleep(wait);
+          return callWithRetry(messages, temp, maxTokens, attempt + 1);
+        }
+        throw e;
+      }
+    }
+
+    // ── Call 1: Topics + Schedule ──────────────────────────────
     const prompt1 = `You are an expert AI exam analyst for Indian engineering universities.
 University: ${university}, Subject: ${subject}, Semester: ${semester}, Format: ${format}, Hours: ${hours}
 Weak Topics: ${weakTopics || "None"}
-PYQ Text: ${pyqText || "No papers uploaded."}
+PYQ snippet: ${pyqText.slice(0, 300) || "None uploaded"}
 
-Respond ONLY with valid JSON, no markdown, no preamble:
+Respond ONLY with valid JSON, no markdown, no trailing commas:
 {
-  "universityDNA": "2-3 sentences about this university exam style and marking pattern",
+  "universityDNA": "2 sentences about this university exam style",
   "emergencyMode": ${isEmergency},
   "topicFrequency": [
     {"topic": "Topic Name", "appearances": 4, "lastYear": 2023, "avgMarks": 16}
@@ -137,150 +249,79 @@ Respond ONLY with valid JSON, no markdown, no preamble:
       "confidence": 90,
       "expectedMarks": 16,
       "hoursNeeded": 2,
-      "reason": "Brief reason",
+      "reason": "One sentence",
       "cheatSheet": {
-        "definition": "One sentence definition",
+        "definition": "One sentence",
         "keyPoints": ["Point 1", "Point 2", "Point 3"],
         "formulas": ["Formula 1"],
         "diagram": "What to draw",
-        "examTip": "One exam tip"
+        "examTip": "One tip"
       },
       "selfTest": {
-        "twoMark": ["Q1"],
+        "twoMark": ["Q1", "Q2"],
         "eightMark": ["Q1"],
         "sixteenMark": ["Q1"]
       }
     }
   ],
   "schedule": [
-    {"hour": 1, "task": "Task description", "topic": "Topic name", "type": "study"}
+    {"hour": 1, "task": "Task", "topic": "Topic", "type": "study"}
   ]
 }
-Rules:
-- topics: exactly 5 items, priority values: MUST DO / HIGH / MEDIUM / SKIP
-- topicFrequency: exactly 4 items
-- schedule: exactly ${Math.min(parseInt(hours) || 8, 8)} items, type is study or break
-- Keep entire response under 2500 tokens — be concise`;
+Rules: EXACTLY 4 topics, EXACTLY ${Math.min(parseInt(hours)||6, 6)} schedule items. Under 2000 tokens.`;
 
-    const raw1 = await callGroq([{ role: "user", content: prompt1 }], 0.6, 2500);
+    console.log("⚡ Call 1: Topics + Schedule...");
+    const raw1 = await callWithRetry([{ role: "user", content: prompt1 }], 0.6, 2000);
     let battlePlan;
-    try {
-      battlePlan = cleanJson(raw1);
-    } catch (e) {
-      console.error("JSON parse failed:", e.message);
-      return res.status(500).json({ error: "AI response parsing failed. Try again." });
-    }
+    try { battlePlan = cleanJson(raw1); }
+    catch (e) { return res.status(500).json({ error: "Analysis failed. Please try again." }); }
 
-    await sleep(65000);
-
-    // ── Call 2: Section A ──
-    const sectionAPrompt = `You are an exam paper setter for ${subject} at ${university}, ${semester}.
-Generate Section A with 8 short-answer questions and model answers.
+    // ── Call 2: Section A + B ──────────────────────────────────
+    const prompt2 = `You are an exam paper setter for ${subject} at ${university}.
 Respond ONLY with valid JSON, no markdown:
 {
   "sectionA": [
-    {"qNo": 1, "question": "Question text", "marks": 2, "topic": "Topic", "answer": "2-3 sentence model answer"}
-  ]
-}
-Rules: exactly 8 questions, cover all major topics, keep under 2000 tokens.`;
-
-    const rawA = await callGroq([{ role: "user", content: sectionAPrompt }], 0.5, 2000);
-    let sectionA = [];
-    try { sectionA = cleanJson(rawA).sectionA || []; } catch(e) { console.error("SectionA fail:", e.message); }
-
-    await sleep(65000);
-
-    // ── Call 3: Section B ──
-    const sectionBPrompt = `You are an exam paper setter for ${subject} at ${university}, ${semester}.
-Generate Section B with 5 medium-answer questions and model answers.
-Respond ONLY with valid JSON, no markdown:
-{
+    {"qNo": 1, "question": "Question", "marks": 2, "topic": "Topic", "answer": "2-3 sentence model answer"}
+  ],
   "sectionB": [
-    {"qNo": 1, "question": "Question text", "marks": 8, "topic": "Topic", "answer": "Detailed answer in 4-6 sentences", "diagram": "Diagram description or empty string", "numerical": "Full working or empty string"}
+    {"qNo": 1, "question": "Question", "marks": 8, "topic": "Topic", "answer": "4-5 sentence answer", "diagram": "diagram description or empty string", "numerical": "working or empty string"}
   ]
 }
-Rules: exactly 5 questions, answers concise but complete, keep under 2500 tokens.`;
+Rules: EXACTLY 5 sectionA, EXACTLY 3 sectionB. Under 2000 tokens.`;
 
-    const rawB = await callGroq([{ role: "user", content: sectionBPrompt }], 0.5, 2500);
-    let sectionB = [];
-    try { sectionB = cleanJson(rawB).sectionB || []; } catch(e) { console.error("SectionB fail:", e.message); }
+    console.log("⚡ Call 2: Section A + B...");
+    const raw2 = await callWithRetry([{ role: "user", content: prompt2 }], 0.6, 2000);
+    let part2 = { sectionA: [], sectionB: [] };
+    try { part2 = cleanJson(raw2); } catch (e) { console.error("Part2 parse fail:", e.message); }
 
-    await sleep(65000);
-
-    // ── Call 4: Section C ──
-    const sectionCPrompt = `You are an exam paper setter for ${subject} at ${university}, ${semester}.
-Generate Section C with 4 long-answer questions and model answers.
+    // ── Call 3: Section C ──────────────────────────────────────
+    const prompt3 = `You are an exam paper setter for ${subject} at ${university}.
 Respond ONLY with valid JSON, no markdown:
 {
   "sectionC": [
-    {"qNo": 1, "question": "Question text", "marks": 16, "topic": "Topic", "answer": "Answer in 6-8 sentences as continuous prose", "diagram": "Diagram description or empty string", "numerical": "Full working or empty string"}
+    {"qNo": 1, "question": "Question", "marks": 16, "topic": "Topic", "answer": "6-8 sentence comprehensive answer", "diagram": "diagram description or empty string", "numerical": "working or empty string"}
   ]
 }
-Rules: exactly 4 questions, answers thorough but concise, keep under 2500 tokens.`;
+Rules: EXACTLY 3 sectionC questions. Under 1500 tokens.`;
 
-    const rawC = await callGroq([{ role: "user", content: sectionCPrompt }], 0.5, 2500);
-    let sectionC = [];
-    try { sectionC = cleanJson(rawC).sectionC || []; } catch(e) { console.error("SectionC fail:", e.message); }
+    console.log("⚡ Call 3: Section C...");
+    const raw3 = await callWithRetry([{ role: "user", content: prompt3 }], 0.6, 1500);
+    let part3 = { sectionC: [] };
+    try { part3 = cleanJson(raw3); } catch (e) { console.error("Part3 parse fail:", e.message); }
 
     battlePlan.predictedPaper = {
-      title: `${subject} — Predicted Question Paper (${university})`,
-      sectionA,
-      sectionB,
-      sectionC,
+      title: `${subject} — Predicted Paper (${university})`,
+      sectionA: part2.sectionA || [],
+      sectionB: part2.sectionB || [],
+      sectionC: part3.sectionC || [],
     };
 
+    console.log("✅ Battle plan ready!");
     res.json({ success: true, data: battlePlan });
+
   } catch (err) {
     console.error("Generate error:", err);
     res.status(500).json({ error: err.message || "Generation failed" });
-  }
-});
-// ─── ROUTE 2: POST /youtube ───────────────────────────────────────────────────
-app.post("/youtube", async (req, res) => {
-  try {
-    const { topics, subject, university } = req.body;
-
-    // Subject-aware channel filter
-    const subjectLower = (subject || "").toLowerCase();
-    let channelFilter = "Gate Smashers|Neso Academy|NPTEL";
-    if (/math|calculus|algebra|statistics/.test(subjectLower)) {
-      channelFilter = "Khan Academy|PatrickJMT|3Blue1Brown|NPTEL";
-    } else if (/electron|circuit|signal|analog|digital/.test(subjectLower)) {
-      channelFilter = "Neso Academy|ALL ABOUT ELECTRONICS|Engineering Funda";
-    } else if (/os|network|algorithm|data struct|compiler/.test(subjectLower)) {
-      channelFilter =
-        "Gate Smashers|Jenny's Lectures|Knowledge Gate|Neso Academy";
-    }
-
-    const results = {};
-    const topicList = Array.isArray(topics)
-      ? topics.slice(0, 5)
-      : [topics];
-
-    for (const topic of topicList) {
-      const query = `${topic} ${subject} engineering exam revision ${channelFilter.split("|")[0]}`;
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=2&key=${process.env.YOUTUBE_API_KEY}`;
-
-      const ytRes = await fetch(url);
-      const ytData = await ytRes.json();
-
-      if (ytData.items && ytData.items.length > 0) {
-        results[topic] = ytData.items.map((item) => ({
-          videoId: item.id.videoId,
-          title: item.snippet.title,
-          channel: item.snippet.channelTitle,
-          thumbnail: item.snippet.thumbnails.medium.url,
-          watchUrl: `https://www.youtube.com/watch?v=${item.id.videoId}`,
-        }));
-      } else {
-        results[topic] = [];
-      }
-    }
-
-    res.json({ success: true, data: results });
-  } catch (err) {
-    console.error("YouTube error:", err);
-    res.status(500).json({ error: err.message });
   }
 });
 

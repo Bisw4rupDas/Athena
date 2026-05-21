@@ -170,7 +170,8 @@ async function generateBattlePlan() {
     fd.append("weakTopics", weakTopics);
     selectedFiles.forEach((f) => fd.append("pyqs", f));
 
-    const res = await fetch("/generate", { method: "POST", body: fd });
+    const demoMode = new URLSearchParams(window.location.search).get("demo") === "true";
+const res = await fetch(`/generate${demoMode ? "?demo=true" : ""}`, { method: "POST", body: fd });
     const json = await res.json();
 
     clearInterval(ticker);
