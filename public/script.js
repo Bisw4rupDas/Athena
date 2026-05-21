@@ -930,7 +930,8 @@ async function openLesson(hour) {
   if (!slot) return;
 
   // Show screen immediately with loading state
-  document.getElementById("teach-nav-title").textContent = `📚 HR ${hour} — ${slot.topic || slot.task}`;
+  const displayTopic = (!slot.topic || slot.topic.toLowerCase() === "all") ? slot.task : slot.topic;
+  document.getElementById("teach-nav-title").textContent = `📚 HR ${hour} — ${displayTopic}`;
   document.getElementById("teach-content").innerHTML = renderLessonSkeleton(slot);
   showScreen("screen-teach");
 
@@ -945,7 +946,7 @@ async function openLesson(hour) {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        topic: slot.topic || slot.task,
+        topic: (!slot.topic || slot.topic.toLowerCase() === "all") ? slot.task : slot.topic,
         task: slot.task,
         subject: studentData.subject,
         university: studentData.university,
@@ -955,8 +956,8 @@ async function openLesson(hour) {
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
 
-    lessonCache[hour] = json.data;
-    renderLesson(hour, slot, json.data);
+    lessonCache[hour] = { ...json.data, ytVideos: json.ytVideos || [] };
+    renderLesson(hour, slot, lessonCache[hour]);
   } catch(err) {
     document.getElementById("teach-content").innerHTML = `
       <div style="text-align:center;padding:60px;font-family:var(--font-mono);color:var(--red)">
@@ -984,26 +985,7 @@ function renderLessonSkeleton(slot) {
 
 function renderLesson(hour, slot, lesson) {
   // Find YouTube videos for this topic
-  const ytContainer = document.getElementById("youtube-content");
-  const topicKey = slot.topic || slot.task;
-  let ytVideos = [];
-
-  // Search loaded youtube data for matching topic
-  if (ytContainer) {
-    const topicBlocks = ytContainer.querySelectorAll(".yt-topic-block");
-    topicBlocks.forEach(block => {
-      const name = block.querySelector(".yt-topic-name")?.textContent?.toLowerCase() || "";
-      if (topicKey.toLowerCase().includes(name.slice(0,6)) || name.includes(topicKey.toLowerCase().slice(0,6))) {
-        block.querySelectorAll(".yt-card").forEach(card => {
-          const title = card.querySelector(".yt-title")?.textContent || "";
-          const channel = card.querySelector(".yt-channel")?.textContent || "";
-          const href = card.querySelector(".yt-watch")?.href || "";
-          const thumb = card.querySelector(".yt-thumb")?.src || "";
-          if (href) ytVideos.push({ title, channel, href, thumb });
-        });
-      }
-    });
-  }
+  const ytVideos = lesson.ytVideos || [];
 
   const ytHTML = ytVideos.length ? `
     <div class="lesson-block" style="border-color:#FF0000">
