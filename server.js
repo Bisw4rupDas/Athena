@@ -116,6 +116,7 @@ function cleanJson(raw) {
 app.post("/generate", upload.array("pyqs", 5), async (req, res) => {
   try {
     const { university, subject, semester, format, hours, weakTopics } = req.body;
+    console.log("FORMAT RECEIVED:", JSON.stringify(format));
     const files = req.files || [];
     const isEmergency = parseInt(hours) <= 3;
     const scheduleCount = Math.min(parseInt(hours) || 6, 6);
@@ -144,7 +145,9 @@ Respond ONLY valid JSON no markdown:
   }],
   "schedule":[{"hour":1,"task":"task","topic":"topic","type":"study"}]
 }
-Rules: 4 topics, 3 topicFrequency, ${scheduleCount} schedule items. Be concise.`;
+Rules: 4 topics, 3 topicFrequency, ${scheduleCount} schedule items. Be concise.
+Format-specific: ${format === 'Numerical Heavy' ? 'prioritise numerical problem topics, mark formula-heavy topics as MUST DO' : format === 'Pure Theory' ? 'prioritise definition and theory topics, deprioritise numerical topics' : format === 'MCQ Based' ? 'prioritise broad coverage topics over deep-dive topics since MCQ tests wide knowledge' : 'balanced mix of theory and numerical topics'}.
+University-specific: tailor topic priorities to how ${university} actually sets ${subject} papers in ${semester}.`;
 
     const raw1 = await callGroqWithRetry([{ role: "user", content: prompt1 }], 0.6, 1200);
     let battlePlan;
@@ -157,10 +160,22 @@ Rules: 4 topics, 3 topicFrequency, ${scheduleCount} schedule items. Be concise.`
     await sleep(1500);
 
     // ── Call 2: Section A (5 short questions) ──
-    const promptA = `Exam setter for ${subject}, ${university}, ${semester}.
-Respond ONLY valid JSON no markdown:
-{"sectionA":[{"qNo":1,"question":"Q","marks":2,"topic":"T","answer":"2 sentence answer"}]}
-Rules: exactly 5 questions, concise answers, under 900 tokens.`;
+    const isMCQ        = format === 'MCQ Based';
+    const isNumerical  = format === 'Numerical Heavy';
+    const isTheory     = format === 'Pure Theory';
+    const isMixed      = format === 'Mixed Format';
+
+    const promptA = `You are an exam paper setter. Generate Section A for ${subject}, ${semester}, ${university}.
+
+EXAM FORMAT IS: ${format}
+${isMCQ       ? 'STRICT RULE: Every single question in sectionA MUST be MCQ format. Each question must have exactly 4 options labeled (a), (b), (c), (d). The answer field must say which option is correct and why. NO descriptive questions allowed.' : ''}
+${isNumerical ? 'STRICT RULE: At least 4 out of 5 questions must be numerical problems. Show full calculation in answer field. Include given data, formula, substitution, final answer with units.' : ''}
+${isTheory    ? 'STRICT RULE: All questions must be pure theory — definitions, full forms, state theorems, differentiate between concepts. Zero numericals allowed.' : ''}
+${isMixed     ? 'STRICT RULE: Mix of 3 theory questions and 2 numerical questions.' : ''}
+
+Respond ONLY valid JSON no markdown no preamble:
+{"sectionA":[{"qNo":1,"question":"full question text${isMCQ ? ' with (a)(b)(c)(d) options written inside the question field' : ''}","marks":2,"topic":"topic name","answer":"${isMCQ ? 'Correct option is (X) because...' : 'model answer'}"}]}
+Exactly 5 questions. Cover high-frequency topics for ${university} ${subject} ${semester}.`;
 
     const rawA = await callGroqWithRetry([{ role: "user", content: promptA }], 0.5, 900);
     let sectionA = [];
@@ -169,13 +184,20 @@ Rules: exactly 5 questions, concise answers, under 900 tokens.`;
     await sleep(1500);
 
     // ── Call 3: Section B + C together ──
-    const promptBC = `Exam setter for ${subject}, ${university}, ${semester}.
-Respond ONLY valid JSON no markdown:
+    const promptBC = `You are an exam paper setter. Generate Section B and Section C for ${subject}, ${semester}, ${university}.
+
+EXAM FORMAT IS: ${format}
+${isMCQ       ? 'STRICT RULE: Section B and C are descriptive even in MCQ-format exams. But all questions must test the kind of conceptual knowledge MCQ exams focus on — short definitions, differences, state-and-explain type. No lengthy derivations.' : ''}
+${isNumerical ? 'STRICT RULE: Section B must have 2 numerical problems and 1 theory. Section C must have 1 full numerical derivation and 1 numerical problem. Every numerical must show: Given → Find → Formula → Step-by-step working → Final answer with units.' : ''}
+${isTheory    ? 'STRICT RULE: All questions must be pure theory. Explain, describe, differentiate, justify. Zero numericals. Diagrams encouraged — describe them in the diagram field.' : ''}
+${isMixed     ? 'STRICT RULE: Section B: 2 theory + 1 numerical. Section C: 1 theory with diagram + 1 numerical with full working.' : ''}
+
+Respond ONLY valid JSON no markdown no preamble:
 {
-  "sectionB":[{"qNo":1,"question":"Q","marks":8,"topic":"T","answer":"4 sentence answer","diagram":"","numerical":""}],
-  "sectionC":[{"qNo":1,"question":"Q","marks":16,"topic":"T","answer":"5 sentence answer","diagram":"","numerical":""}]
+  "sectionB":[{"qNo":1,"question":"full question","marks":8,"topic":"topic","answer":"detailed answer","diagram":"draw instructions or empty string","numerical":"full working or empty string"}],
+  "sectionC":[{"qNo":1,"question":"full question","marks":16,"topic":"topic","answer":"comprehensive answer","diagram":"draw instructions or empty string","numerical":"full working or empty string"}]
 }
-Rules: sectionB exactly 3 questions, sectionC exactly 2 questions. Concise. Under 1200 tokens total.`;
+sectionB exactly 3 questions. sectionC exactly 2 questions. Match actual ${university} exam pattern.`;
 
     const rawBC = await callGroqWithRetry([{ role: "user", content: promptBC }], 0.5, 1200);
     let sectionB = [], sectionC = [];
