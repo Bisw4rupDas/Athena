@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>⚔️ COLOSSEUM — AI Exam Intelligence</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <link rel="stylesheet" href="style.css" />
@@ -13,10 +13,10 @@
 <!-- Safe Browser Toast -->
 <div id="sb-toast" style="
   position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
-  background:#1a0a0a; border:1px solid #FF4444; border-radius:10px;
-  padding:14px 24px; font-family:monospace; font-size:13px; color:#FF6666;
+  background:#121212; border:1px solid #FF4D00; border-radius:9999px;
+  padding:14px 24px; font-family:Inter,sans-serif; font-size:13px; color:#FF6B35;
   z-index:9999; opacity:0; transition:opacity 0.3s; pointer-events:none;
-  white-space:nowrap; letter-spacing:0.04em;">
+  white-space:nowrap;">
   <span id="sb-toast-msg">⚠️ Violation detected</span>
 </div>
 <style>
@@ -30,7 +30,7 @@
 <div id="screen-auth" class="screen active">
   <div class="auth-page">
     <div class="auth-logo">⚔️ COLOSSEUM</div>
-    <div class="auth-tagline">AI EXAM INTELLIGENCE ENGINE</div>
+    <div class="auth-tagline">AI exam intelligence engine</div>
 
     <div class="auth-tabs">
       <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">LOGIN</button>
@@ -87,14 +87,22 @@
     <div class="plan-nav-logo">⚔️ COLOSSEUM</div>
     <div class="plan-nav-actions">
       <span id="dash-username" class="nav-username"></span>
-      <button class="btn-nav btn-nav-ghost" onclick="handleLogout()">LOGOUT →</button>
+      <button class="btn-nav btn-nav-ghost" onclick="handleLogout()">Logout</button>
     </div>
   </nav>
-  <div class="dashboard-page">
-    <div class="dash-hero">
-      <div class="dash-welcome" id="dash-welcome">WELCOME BACK, WARRIOR</div>
-      <div class="dash-sub">Your battle stats are ready. Time to fight.</div>
+  <div class="hero-panel">
+    <div class="hero-panel-inner hero-grid">
+      <div>
+        <div class="hero-eyebrow">Hey, welcome back</div>
+        <h1 class="hero-title" id="dash-welcome">Warrior</h1>
+      </div>
+      <div>
+        <p class="hero-tagline">Your battle stats are ready.</p>
+        <p class="hero-desc">Generate a plan, hit the war room, and climb the leaderboard.</p>
+      </div>
     </div>
+  </div>
+  <div class="dashboard-page">
 
     <div class="dash-stats-row">
       <div class="dash-stat-card">
@@ -166,20 +174,27 @@
 <!-- ══════════════════════════════════════════════════════════
      SCREEN 1 — PANIC FORM
 ══════════════════════════════════════════════════════════ -->
-<div id="screen-form" class="screen active">
-  <header class="site-header">
-    <div class="header-inner">
-      <div class="logo">⚔️ COLOSSEUM</div>
-      <div class="header-tag">AI EXAM INTELLIGENCE ENGINE</div>
+<div id="screen-form" class="screen">
+  <nav class="plan-nav">
+    <div class="plan-nav-logo">⚔️ COLOSSEUM</div>
+    <div class="plan-nav-actions">
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">Dashboard</button>
     </div>
-  </header>
+  </nav>
+  <div class="hero-panel">
+    <div class="hero-panel-inner hero-grid">
+      <div>
+        <div class="hero-eyebrow">#01 Battle Protocol</div>
+        <h1 class="hero-title">Upload Papers.<br/>Get Your Plan.</h1>
+      </div>
+      <div>
+        <p class="hero-tagline">AI exam intelligence in minutes.</p>
+        <p class="hero-desc">Past papers → analysis → predicted paper + hour-by-hour strategy.</p>
+      </div>
+    </div>
+  </div>
 
   <main class="form-main">
-    <div class="form-hero">
-      <div class="form-hero-label">/INITIALISE_BATTLE_PROTOCOL</div>
-      <h1 class="form-title">UPLOAD YOUR PAPERS.<br/>GET YOUR BATTLE PLAN.</h1>
-      <p class="form-sub">Past papers → AI analysis → predicted paper + hour-by-hour strategy in under 2 minutes.</p>
-    </div>
 
     <div class="form-card">
       <div class="form-grid">
@@ -474,7 +489,7 @@
     </div>
   </nav>
   <div class="plan-content" style="max-width:780px;margin:0 auto;padding:40px 24px" id="teach-content">
-    <div style="text-align:center;padding:80px 0;font-family:var(--font-mono);color:#333">LOADING LESSON...</div>
+    <div style="text-align:center;padding:80px 0;color:var(--text3)">Loading lesson...</div>
   </div>
 </div>
 
@@ -485,7 +500,7 @@
 
   <!-- Nav -->
   <nav class="plan-nav">
-    <div class="plan-nav-logo" style="font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:0.06em">⚔ WAR CHEST</div>
+    <div class="plan-nav-logo">⚔️ WAR CHEST</div>
     <div class="plan-nav-actions">
       <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BATTLE PLAN</button>
       <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>

@@ -2,6 +2,39 @@
 // COLOSSEUM — FRONTEND LOGIC
 // ═══════════════════════════════════════════════════════════
 
+// ─── HTML escape (for safe YouTube / dynamic markup) ───────
+function escapeHtml(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function youtubeThumbUrl(v) {
+  if (v.thumbnail) return v.thumbnail;
+  if (v.thumb) return v.thumb;
+  if (v.videoId) return "https://i.ytimg.com/vi/" + v.videoId + "/mqdefault.jpg";
+  return "";
+}
+
+function renderYoutubeCard(v) {
+  const url = escapeHtml(v.watchUrl || v.href || "");
+  const thumb = escapeHtml(youtubeThumbUrl(v));
+  const title = escapeHtml(v.title);
+  const channel = escapeHtml(v.channel);
+  return (
+    '<a class="yt-card yt-card-link" href="' + url + '" target="_blank" rel="noopener noreferrer">' +
+      '<img class="yt-thumb" src="' + thumb + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.src=\'https://i.ytimg.com/vi/\'+(this.dataset.vid||\'\')+\'/mqdefault.jpg\'" data-vid="' + escapeHtml(v.videoId || "") + '" />' +
+      '<div class="yt-info">' +
+        '<div class="yt-title">' + title + '</div>' +
+        '<div class="yt-channel">' + channel + '</div>' +
+        '<span class="yt-watch">▶ Watch now →</span>' +
+      '</div>' +
+    '</a>'
+  );
+}
+
 // ─── Global State ─────────────────────────────────────────
 let battlePlan = null;
 let studentData = {};
@@ -54,7 +87,7 @@ function showBreakToast() {
   const existing = document.getElementById('pts-toast'); if (existing) existing.remove();
   const toast = document.createElement('div');
   toast.id = 'pts-toast';
-  toast.style.cssText = 'position:fixed;bottom:24px;right:16px;z-index:9999;background:#0d1022;border:1px solid #1e4060;border-radius:12px;padding:10px 16px;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.06em;color:#58a6ff;box-shadow:0 4px 24px rgba(0,0,0,0.6);animation:wcFadeIn 0.3s ease';
+  toast.style.cssText = 'position:fixed;bottom:24px;right:16px;z-index:9999;background:#121212;border:1px solid rgba(255,77,0,0.4);border-radius:9999px;padding:10px 18px;font-family:var(--font-body);font-size:12px;font-weight:600;color:#FF6B35;box-shadow:0 4px 24px rgba(0,0,0,0.6);animation:wcFadeIn 0.3s ease';
   toast.textContent = '⏸ BREAK MODE — Tokens & penalties paused';
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 3000);
@@ -64,7 +97,7 @@ function showResumeToast() {
   const existing = document.getElementById('pts-toast'); if (existing) existing.remove();
   const toast = document.createElement('div');
   toast.id = 'pts-toast';
-  toast.style.cssText = 'position:fixed;bottom:24px;right:16px;z-index:9999;background:#0d1022;border:1px solid #1e4020;border-radius:12px;padding:10px 16px;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.06em;color:#3fb950;box-shadow:0 4px 24px rgba(0,0,0,0.6);animation:wcFadeIn 0.3s ease';
+  toast.style.cssText = 'position:fixed;bottom:24px;right:16px;z-index:9999;background:#121212;border:1px solid rgba(34,197,94,0.4);border-radius:9999px;padding:10px 18px;font-family:var(--font-body);font-size:12px;font-weight:600;color:#22c55e;box-shadow:0 4px 24px rgba(0,0,0,0.6);animation:wcFadeIn 0.3s ease';
   toast.textContent = '▶ RESUMED — Earning tokens again';
   document.body.appendChild(toast);
   setTimeout(() => toast.remove(), 2500);
@@ -75,12 +108,12 @@ function updateBreakBtnUI() {
   if (!btn) return;
   if (isOnBreak) {
     btn.textContent = '▶ RESUME STUDY';
-    btn.style.borderColor = '#3fb950';
-    btn.style.color = '#3fb950';
+    btn.style.borderColor = '#22c55e';
+    btn.style.color = '#22c55e';
   } else {
     btn.textContent = '⏸ TAKE A BREAK';
-    btn.style.borderColor = '#58a6ff';
-    btn.style.color = '#58a6ff';
+    btn.style.borderColor = '#FF4D00';
+    btn.style.color = '#FF4D00';
   }
 }
 let wrTopicIndex = 0;
@@ -147,7 +180,7 @@ async function handleLogout() {
 
 async function showDashboard() {
   if (!currentUser) return;
-  document.getElementById('dash-welcome').textContent = `WELCOME BACK, ${currentUser.name.toUpperCase()}`;
+  document.getElementById('dash-welcome').textContent = currentUser.name.split(' ')[0];
   document.getElementById('dash-username').textContent = currentUser.name;
   document.getElementById('dash-pts').textContent = pointsData.total.toLocaleString();
   document.getElementById('dash-topics').textContent = pointsData.stats.topicsDone || 0;
@@ -254,12 +287,12 @@ function showPointsToast(amount, reason) {
   toast.id = 'pts-toast';
   toast.style.cssText = [
     'position:fixed','bottom:24px','right:16px','z-index:9999',
-    'background:#0d1022',
-    'border:1px solid ' + (isLoss ? '#60203a' : '#1e3060'),
-    'border-radius:12px','padding:10px 16px',
-    'font-family:var(--font-mono)','font-size:12px',
-    'font-weight:700','letter-spacing:0.06em',
-    'color:' + (isLoss ? '#e63946' : '#22c578'),
+    'background:#121212',
+    'border:1px solid ' + (isLoss ? 'rgba(239,68,68,0.4)' : 'rgba(255,77,0,0.4)'),
+    'border-radius:9999px','padding:10px 18px',
+    'font-family:var(--font-body)','font-size:12px',
+    'font-weight:600',
+    'color:' + (isLoss ? '#ef4444' : '#FF4D00'),
     'box-shadow:0 4px 24px rgba(0,0,0,0.6)',
     'animation:wcFadeIn 0.3s ease'
   ].join(';');
@@ -464,10 +497,10 @@ function injectBreakButton() {
   btn.id = 'global-break-btn';
   btn.style.cssText = [
     'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
-    'z-index:8888', 'background:#0d1117', 'border:1px solid #58a6ff',
-    'border-radius:20px', 'padding:8px 20px',
-    'font-family:var(--font-mono)', 'font-size:11px', 'font-weight:700',
-    'letter-spacing:0.08em', 'color:#58a6ff', 'cursor:pointer',
+    'z-index:8888', 'background:#121212', 'border:1px solid #FF4D00',
+    'border-radius:9999px', 'padding:10px 22px',
+    'font-family:var(--font-body)', 'font-size:12px', 'font-weight:600',
+    'color:#FF4D00', 'cursor:pointer',
     'box-shadow:0 4px 20px rgba(0,0,0,0.5)', 'animation:wcFadeIn 0.3s ease'
   ].join(';');
   btn.textContent = '⏸ TAKE A BREAK';
@@ -569,7 +602,8 @@ async function generateBattlePlan() {
     : ['Extracting question paper text...', 'Detecting cross-year patterns...', 'Building topic priority table...',
        'Generating Section A questions & answers...', 'Waiting for AI quota reset... (~4 mins total, please don\'t close)',
        'Still working... generating Section B questions + diagrams...', 'Still working... generating Section C long answers...',
-       'Almost done — finalising your battle plan...'];
+       'Almost done — finalising your battle plan...',
+       'Fetching YouTube recommendations for each topic...'];
 
   let pct = 0, msgIdx = 0;
   const barEl = document.getElementById('loading-bar');
@@ -595,7 +629,7 @@ async function generateBattlePlan() {
     selectedFiles.forEach(function(f) { fd.append('pyqs', f); });
 
     const demoMode = new URLSearchParams(window.location.search).get('demo') === 'true';
-    const res  = await fetch('/generate' + (demoMode ? '?demo=true' : ''), { method: 'POST', body: fd });
+    const res  = await fetch('/generate' + (demoMode ? '?demo=true' : ''), { method: 'POST', body: fd, credentials: 'same-origin' });
     const json = await res.json();
 
     clearInterval(ticker);
@@ -610,7 +644,7 @@ async function generateBattlePlan() {
 
     renderBattlePlan();
     showScreen('screen-plan');
-    loadYoutube();
+    loadYoutube(true);
   } catch(err) {
     clearInterval(ticker);
     alert('Error: ' + err.message + '\n\nCheck that your API keys are correct in .env');
@@ -696,7 +730,32 @@ function renderBattlePlan() {
     '</div>';
   }).join('');
 
+  renderYoutubeSection(battlePlan.youtubeByTopic || {});
   buildExamQuestions();
+}
+
+function youtubeDataHasVideos(data) {
+  return Object.values(data || {}).some(function(v) { return Array.isArray(v) && v.length > 0; });
+}
+
+function renderYoutubeSection(data) {
+  const ytEl = document.getElementById('youtube-content');
+  if (!ytEl) return;
+
+  const entries = Object.entries(data || {});
+  if (!entries.length) {
+    ytEl.innerHTML = '<div class="yt-loading">Loading topic-wise video recommendations...</div>';
+    return;
+  }
+
+  ytEl.innerHTML = entries.map(function(entry) {
+    const topic = entry[0];
+    const videos = entry[1];
+    const cards = videos && videos.length
+      ? videos.map(renderYoutubeCard).join('')
+      : '<div class="yt-no-result">No videos found for this topic. Check YouTube API key in .env</div>';
+    return '<div class="yt-topic-block"><div class="yt-topic-name">' + escapeHtml(topic) + '</div>' + cards + '</div>';
+  }).join('');
 }
 
 // ─── Charts ───────────────────────────────────────────────
@@ -707,13 +766,13 @@ function renderCharts(bp) {
   if (freqChart)     { freqChart.destroy();     freqChart     = null; }
   if (priorityChart) { priorityChart.destroy(); priorityChart = null; }
 
-  const chartDefaults = { color: '#A0A0A0', font: { family: "'Space Mono', monospace", size: 11 } };
+  const chartDefaults = { color: '#A0A0A0', font: { family: "'Inter', sans-serif", size: 11 } };
 
   freqChart = new Chart(document.getElementById('chart-freq').getContext('2d'), {
     type: 'bar',
     data: {
       labels: freq.slice(0, 8).map(function(f) { return f.topic.length > 16 ? f.topic.slice(0, 14) + '…' : f.topic; }),
-      datasets: [{ data: freq.slice(0, 8).map(function(f) { return f.appearances; }), backgroundColor: '#7B5CF5', borderColor: '#9D7FF8', borderWidth: 1 }],
+      datasets: [{ data: freq.slice(0, 8).map(function(f) { return f.appearances; }), backgroundColor: '#FF4D00', borderColor: '#FF6B35', borderWidth: 1, borderRadius: 8 }],
     },
     options: { responsive: true, plugins: { legend: { display: false } }, scales: { x: { ticks: chartDefaults, grid: { color: '#1a1a1a' } }, y: { ticks: { ...chartDefaults, stepSize: 1 }, grid: { color: '#1a1a1a' } } } },
   });
@@ -731,38 +790,67 @@ function renderCharts(bp) {
     type: 'doughnut',
     data: {
       labels: Object.keys(priorityCounts),
-      datasets: [{ data: Object.values(priorityCounts), backgroundColor: ['#7B5CF5', '#FFD60A', '#555', '#252525'], borderColor: '#080808', borderWidth: 3 }],
+      datasets: [{ data: Object.values(priorityCounts), backgroundColor: ['#FF4D00', '#fbbf24', '#555', '#252525'], borderColor: '#000', borderWidth: 3 }],
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#A0A0A0', font: { family: "'Space Mono', monospace", size: 10 }, boxWidth: 12 } } } },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { color: '#A0A0A0', font: { family: "'Inter', sans-serif", size: 10 }, boxWidth: 12 } } } },
   });
 }
 
-// ─── YouTube ──────────────────────────────────────────────
-async function loadYoutube() {
+// ─── YouTube (topic-wise in battle plan) ───────────────────
+async function loadYoutube(skipIfCached) {
+  const ytEl = document.getElementById('youtube-content');
+  if (!ytEl) return;
+  if (!battlePlan) {
+    ytEl.innerHTML = '<div class="yt-loading">Generate a battle plan first to see video recommendations.</div>';
+    return;
+  }
+
+  if (skipIfCached && battlePlan.youtubeByTopic && youtubeDataHasVideos(battlePlan.youtubeByTopic)) {
+    renderYoutubeSection(battlePlan.youtubeByTopic);
+    return;
+  }
+
+  if (battlePlan.youtubeByTopic && Object.keys(battlePlan.youtubeByTopic).length) {
+    renderYoutubeSection(battlePlan.youtubeByTopic);
+    if (youtubeDataHasVideos(battlePlan.youtubeByTopic)) return;
+  } else {
+    ytEl.innerHTML = '<div class="yt-loading">Loading topic-wise video recommendations...</div>';
+  }
+
   try {
-    // Send { name, task } so server can build specific queries per topic
     const schedule = battlePlan.schedule || [];
     const mustDo = (battlePlan.topics || []).filter(function(t) { return (t.priority || '').toUpperCase().includes('MUST'); });
     const topicObjs = (mustDo.length ? mustDo : (battlePlan.topics || []).slice(0, 6)).map(function(t) {
-      // Find the matching schedule slot task for extra specificity
       var slot = schedule.find(function(s) { return s.topic && s.topic.toLowerCase() === t.name.toLowerCase(); });
       return { name: t.name, task: slot ? slot.task : '' };
     });
 
-    const res  = await fetch('/youtube', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topics: topicObjs, subject: studentData.subject, university: studentData.university }) });
-    const json = await res.json();
+    if (!topicObjs.length) {
+      ytEl.innerHTML = '<div class="yt-loading">No topics in your battle plan for video search.</div>';
+      return;
+    }
 
-    const ytEl = document.getElementById('youtube-content');
-    if (!json.success) { ytEl.innerHTML = '<div class="yt-loading">Could not load videos. Check YouTube API key.</div>'; return; }
+    const res = await fetch('/youtube', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ topics: topicObjs, subject: studentData.subject, university: studentData.university }),
+    });
+    const json = await res.json().catch(function() { return {}; });
 
-    ytEl.innerHTML = Object.entries(json.data).map(function([topic, videos]) {
-      const cards = videos.length
-        ? videos.map(function(v) { return '<div class="yt-card"><img class="yt-thumb" src="' + v.thumbnail + '" alt="' + v.title + '" loading="lazy" /><div class="yt-info"><div class="yt-title">' + v.title + '</div><div class="yt-channel">' + v.channel + '</div><a class="yt-watch" href="' + v.watchUrl + '" target="_blank" rel="noopener">▶ WATCH NOW →</a></div></div>'; }).join('')
-        : '<div class="yt-no-result">No videos found for this topic.</div>';
-      return '<div class="yt-topic-block"><div class="yt-topic-name">' + topic.toUpperCase() + '</div>' + cards + '</div>';
-    }).join('');
-  } catch(err) {
-    document.getElementById('youtube-content').innerHTML = '<div class="yt-loading">Video load failed: ' + err.message + '</div>';
+    if (!res.ok || !json.success) {
+      ytEl.innerHTML = '<div class="yt-loading">' + escapeHtml(json.error || 'Could not load videos. Add YOUTUBE_API_KEY to .env and restart the server.') + '</div>';
+      return;
+    }
+
+    battlePlan.youtubeByTopic = json.data || {};
+    renderYoutubeSection(battlePlan.youtubeByTopic);
+
+    if (!youtubeDataHasVideos(battlePlan.youtubeByTopic)) {
+      ytEl.innerHTML += '<div class="yt-loading" style="margin-top:12px">No videos returned. Verify your YouTube Data API key is enabled in Google Cloud.</div>';
+    }
+  } catch (err) {
+    ytEl.innerHTML = '<div class="yt-loading">Video load failed: ' + escapeHtml(err.message) + '</div>';
   }
 }
 
@@ -1058,14 +1146,14 @@ function downloadPDF() {
 
   doc.setFillColor(8, 8, 8);
   doc.rect(0, 0, 210, 297, 'F');
-  addText('⚔ COLOSSEUM — BATTLE PLAN', 22, [123, 92, 245], true); y += 4;
+  addText('COLOSSEUM — BATTLE PLAN', 22, [255, 77, 0], true); y += 4;
   addText(studentData.subject + ' | ' + studentData.university + ' | ' + studentData.semester, 11, [160, 160, 160]); y += 8;
-  addText('UNIVERSITY EXAM DNA', 14, [123, 92, 245], true); y += 2;
+  addText('UNIVERSITY EXAM DNA', 14, [255, 77, 0], true); y += 2;
   addText(battlePlan.universityDNA || '', 10, [200, 200, 200]); y += 8;
-  addText('TOPIC PRIORITY', 14, [123, 92, 245], true); y += 2;
+  addText('TOPIC PRIORITY', 14, [255, 77, 0], true); y += 2;
   (battlePlan.topics || []).forEach(function(t) { addText('[' + t.priority + '] ' + t.name + ' — ' + t.confidence + '% confidence — ' + t.expectedMarks + 'M — ' + t.hoursNeeded + 'h', 10, [200, 200, 200]); });
   y += 8;
-  addText('HOUR-BY-HOUR SCHEDULE', 14, [123, 92, 245], true); y += 2;
+  addText('HOUR-BY-HOUR SCHEDULE', 14, [255, 77, 0], true); y += 2;
   (battlePlan.schedule || []).forEach(function(s) { addText('HR ' + s.hour + ': ' + s.task, 10, [200, 200, 200]); });
   doc.save('Colosseum_BattlePlan_' + studentData.subject.replace(/\s+/g, '_') + '.pdf');
 }
@@ -1082,22 +1170,22 @@ function renderPaperPage() {
   const container = document.getElementById('paper-page-content');
 
   const sections = [
-    { key: 'sectionA', label: 'SECTION A — SHORT ANSWER',  marksLabel: '2 MARKS EACH',  color: '#7B5CF5' },
-    { key: 'sectionB', label: 'SECTION B — MEDIUM ANSWER', marksLabel: '8 MARKS EACH',  color: '#00FF9C' },
-    { key: 'sectionC', label: 'SECTION C — LONG ANSWER',   marksLabel: '16 MARKS EACH', color: '#FFD60A' },
+    { key: 'sectionA', label: 'SECTION A — SHORT ANSWER',  marksLabel: '2 MARKS EACH',  color: '#FF4D00' },
+    { key: 'sectionB', label: 'SECTION B — MEDIUM ANSWER', marksLabel: '8 MARKS EACH',  color: '#FF6B35' },
+    { key: 'sectionC', label: 'SECTION C — LONG ANSWER',   marksLabel: '16 MARKS EACH', color: '#fbbf24' },
   ];
 
-  let html = '<div style="text-align:center;margin-bottom:40px;padding:32px;border:2px solid #7B5CF5;background:#0d0d0d"><div style="font-family:var(--font-mono);font-size:11px;color:#7B5CF5;letter-spacing:3px;margin-bottom:8px">AI PREDICTED</div><div style="font-family:var(--font-mono);font-size:22px;font-weight:700;color:#F0F0F0;margin-bottom:8px">' + (pp.title || studentData.subject + ' — Predicted Paper') + '</div><div style="font-family:var(--font-mono);font-size:11px;color:#555;letter-spacing:2px">' + studentData.university + ' · ' + studentData.semester + ' · ' + studentData.format + '</div></div>';
+  let html = '<div style="text-align:center;margin-bottom:40px;padding:36px;border:1px solid rgba(255,77,0,0.3);background:#121212;border-radius:24px"><div style="font-size:12px;font-weight:600;color:#FF4D00;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">AI Predicted</div><div style="font-family:var(--font-display);font-size:24px;font-weight:700;color:#fff;margin-bottom:8px">' + (pp.title || studentData.subject + ' — Predicted Paper') + '</div><div style="font-size:13px;color:#666">' + studentData.university + ' · ' + studentData.semester + ' · ' + studentData.format + '</div></div>';
 
   sections.forEach(function(sec) {
     const qs = pp[sec.key] || [];
     if (!qs.length) return;
-    html += '<div style="margin-bottom:48px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid #1a1a1a"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:' + sec.color + ';letter-spacing:2px">' + sec.label + '</div><div style="font-family:var(--font-mono);font-size:10px;color:#444;border:1px solid #333;padding:3px 8px">' + sec.marksLabel + '</div></div>';
+    html += '<div style="margin-bottom:48px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:24px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08)"><div style="font-size:14px;font-weight:700;color:' + sec.color + '">' + sec.label + '</div><div style="font-size:11px;color:#666;border:1px solid rgba(255,255,255,0.1);padding:4px 12px;border-radius:9999px">' + sec.marksLabel + '</div></div>';
     qs.forEach(function(q) {
-      html += '<div style="margin-bottom:32px;background:#0a0a0a;border:1px solid #1e1e1e;border-left:3px solid ' + sec.color + ';padding:24px;border-radius:2px"><div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px"><div style="font-family:var(--font-mono);font-size:13px;font-weight:700;color:' + sec.color + ';min-width:32px">Q' + q.qNo + '.</div><div><div style="font-family:var(--font-mono);font-size:14px;color:#F0F0F0;line-height:1.6">' + q.question + '</div><div style="margin-top:6px;display:inline-block;font-family:var(--font-mono);font-size:10px;color:#555;border:1px solid #2a2a2a;padding:2px 8px">[' + q.marks + ' MARKS] · ' + (q.topic || '') + '</div></div></div>';
-      if (q.diagram && q.diagram.trim())     html += '<div style="margin-bottom:16px;padding:16px;background:#0f0f0f;border:1px dashed #2a2a2a;border-radius:2px"><div style="font-family:var(--font-mono);font-size:10px;color:#7B5CF5;letter-spacing:2px;margin-bottom:10px">📐 DIAGRAM</div><div style="font-family:var(--font-mono);font-size:12px;color:#888;line-height:1.8;white-space:pre-wrap">' + q.diagram + '</div></div>';
-      if (q.numerical && q.numerical.trim()) html += '<div style="margin-bottom:16px;padding:16px;background:#0a0f0a;border:1px dashed #1a3a1a;border-radius:2px"><div style="font-family:var(--font-mono);font-size:10px;color:#00FF9C;letter-spacing:2px;margin-bottom:10px">🔢 NUMERICAL SOLUTION</div><div style="font-family:var(--font-mono);font-size:12px;color:#aaa;line-height:2;white-space:pre-wrap">' + q.numerical + '</div></div>';
-      if (q.answer)                          html += '<div style="padding:16px;background:#111;border:1px solid #222;border-radius:2px"><div style="font-family:var(--font-mono);font-size:10px;color:#00FF9C;letter-spacing:2px;margin-bottom:10px">✓ MODEL ANSWER</div><div style="font-family:\'DM Sans\',sans-serif;font-size:14px;color:#C8C8C8;line-height:1.8;white-space:pre-wrap">' + q.answer + '</div></div>';
+      html += '<div style="margin-bottom:24px;background:#121212;border:1px solid rgba(255,255,255,0.08);border-left:3px solid ' + sec.color + ';padding:24px;border-radius:16px"><div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px"><div style="font-size:14px;font-weight:700;color:' + sec.color + ';min-width:32px">Q' + q.qNo + '.</div><div><div style="font-size:15px;color:#fff;line-height:1.6">' + q.question + '</div><div style="margin-top:8px;display:inline-block;font-size:11px;color:#666;border:1px solid rgba(255,255,255,0.1);padding:4px 10px;border-radius:9999px">[' + q.marks + ' MARKS] · ' + (q.topic || '') + '</div></div></div>';
+      if (q.diagram && q.diagram.trim())     html += '<div style="margin-bottom:16px;padding:16px;background:#1a1a1a;border:1px dashed rgba(255,77,0,0.3);border-radius:12px"><div style="font-size:11px;font-weight:600;color:#FF4D00;margin-bottom:10px">📐 DIAGRAM</div><div style="font-size:13px;color:#A0A0A0;line-height:1.8;white-space:pre-wrap">' + q.diagram + '</div></div>';
+      if (q.numerical && q.numerical.trim()) html += '<div style="margin-bottom:16px;padding:16px;background:#1a1a1a;border:1px dashed rgba(34,197,94,0.3);border-radius:12px"><div style="font-size:11px;font-weight:600;color:#22c55e;margin-bottom:10px">🔢 NUMERICAL SOLUTION</div><div style="font-size:13px;color:#A0A0A0;line-height:2;white-space:pre-wrap">' + q.numerical + '</div></div>';
+      if (q.answer)                          html += '<div style="padding:16px;background:#1a1a1a;border:1px solid rgba(255,255,255,0.08);border-radius:12px"><div style="font-size:11px;font-weight:600;color:#22c55e;margin-bottom:10px">✓ MODEL ANSWER</div><div style="font-size:14px;color:#C8C8C8;line-height:1.8;white-space:pre-wrap">' + q.answer + '</div></div>';
       html += '</div>';
     });
     html += '</div>';
@@ -1127,15 +1215,15 @@ function downloadPaperPDF() {
 
   doc.setFillColor(8,8,8); doc.rect(0,0,210,297,'F');
   y = 30;
-  write('AI PREDICTED QUESTION PAPER', 18, [123,92,245], true); y += 3;
+  write('AI PREDICTED QUESTION PAPER', 18, [255,77,0], true); y += 3;
   write((battlePlan.predictedPaper?.title || studentData.subject), 13, [240,240,240], true); y += 2;
   write(studentData.university + ' · ' + studentData.semester + ' · ' + studentData.format, 10, [100,100,100]);
   y += 10; line([50,50,50]);
 
   const sections = [
-    { key:'sectionA', label:'SECTION A — SHORT ANSWER (2 MARKS)',  color:[123,92,245] },
-    { key:'sectionB', label:'SECTION B — MEDIUM ANSWER (8 MARKS)', color:[0,200,120] },
-    { key:'sectionC', label:'SECTION C — LONG ANSWER (16 MARKS)',  color:[220,180,0] },
+    { key:'sectionA', label:'SECTION A — SHORT ANSWER (2 MARKS)',  color:[255,77,0] },
+    { key:'sectionB', label:'SECTION B — MEDIUM ANSWER (8 MARKS)', color:[255,107,53] },
+    { key:'sectionC', label:'SECTION C — LONG ANSWER (16 MARKS)',  color:[251,191,36] },
   ];
   const pp = battlePlan.predictedPaper || {};
   sections.forEach(function(sec) {
@@ -1144,9 +1232,9 @@ function downloadPaperPDF() {
     y += 6; write(sec.label, 13, sec.color, true); y += 2; line(sec.color);
     qs.forEach(function(q) {
       y += 4; write('Q' + q.qNo + '. ' + q.question + '  [' + q.marks + 'M]', 11, [240,240,240], true); y += 2;
-      if (q.diagram  && q.diagram.trim())   { write('DIAGRAM:', 9, [123,92,245], true);  write(q.diagram,   9, [150,150,150]); y += 2; }
-      if (q.numerical && q.numerical.trim()) { write('NUMERICAL SOLUTION:', 9, [0,200,120], true); write(q.numerical, 9, [160,180,160]); y += 2; }
-      if (q.answer)                          { write('MODEL ANSWER:', 9, [0,200,120], true); write(q.answer, 9, [190,190,190]); }
+      if (q.diagram  && q.diagram.trim())   { write('DIAGRAM:', 9, [255,77,0], true);  write(q.diagram,   9, [150,150,150]); y += 2; }
+      if (q.numerical && q.numerical.trim()) { write('NUMERICAL SOLUTION:', 9, [34,197,94], true); write(q.numerical, 9, [160,180,160]); y += 2; }
+      if (q.answer)                          { write('MODEL ANSWER:', 9, [34,197,94], true); write(q.answer, 9, [190,190,190]); }
       y += 3; line([25,25,25]);
     });
   });
@@ -1276,29 +1364,37 @@ async function openLesson(hour) {
     lessonCache[hour] = { ...json.data, ytVideos: json.ytVideos || [] };
     renderLesson(hour, slot, lessonCache[hour]);
   } catch(err) {
-    document.getElementById('teach-content').innerHTML = '<div style="text-align:center;padding:60px;font-family:var(--font-mono);color:var(--red)">LESSON FAILED: ' + err.message + '<br><br><button class="btn-primary" onclick="openLesson(' + hour + ')" style="margin-top:16px">↩ RETRY</button></div>';
+    document.getElementById('teach-content').innerHTML = '<div style="text-align:center;padding:60px;color:var(--red)">Lesson failed: ' + err.message + '<br><br><button class="btn-primary" onclick="openLesson(' + hour + ')" style="margin-top:16px;max-width:200px;margin-left:auto;margin-right:auto">↩ Retry</button></div>';
   }
 }
 
 function renderLessonSkeleton(slot) {
-  return '<div style="margin-bottom:32px"><div style="font-family:var(--font-mono);font-size:11px;color:#555;letter-spacing:3px;margin-bottom:8px">NOW STUDYING</div><div style="font-family:var(--font-mono);font-size:24px;font-weight:700;color:#F0F0F0">' + (slot.topic || slot.task) + '</div><div style="font-family:var(--font-mono);font-size:11px;color:#444;margin-top:6px">' + slot.task + '</div></div><div style="display:flex;flex-direction:column;gap:16px">' + [1,2,3,4].map(function() { return '<div style="height:80px;background:#0d0d0d;border:1px solid #1a1a1a;border-radius:2px;animation:pulse 1.5s infinite"></div>'; }).join('') + '</div><style>@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}</style>';
+  return '<div style="margin-bottom:32px"><div class="section-eyebrow">Now studying</div><div style="font-family:var(--font-display);font-size:28px;font-weight:700;color:#fff">' + (slot.topic || slot.task) + '</div><div style="font-size:14px;color:#666;margin-top:8px">' + slot.task + '</div></div><div style="display:flex;flex-direction:column;gap:16px">' + [1,2,3,4].map(function() { return '<div style="height:80px;background:#121212;border:1px solid rgba(255,255,255,0.08);border-radius:16px;animation:pulse 1.5s infinite"></div>'; }).join('') + '</div><style>@keyframes pulse{0%,100%{opacity:.4}50%{opacity:.9}}</style>';
 }
 
 function renderLesson(hour, slot, lesson) {
   const ytVideos = lesson.ytVideos || [];
-  const ytHTML = ytVideos.length ? '<div class="lesson-block" style="border-color:#FF0000"><div class="lesson-block-label" style="color:#FF0000">▶ YOUTUBE — WATCH BEFORE STUDYING</div><div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">' + ytVideos.map(function(v) { return '<a href="' + v.href + '" target="_blank" rel="noopener" style="display:flex;gap:12px;align-items:center;text-decoration:none;padding:10px;background:#0a0a0a;border:1px solid #1a1a1a"><img src="' + v.thumb + '" style="width:100px;height:56px;object-fit:cover;flex-shrink:0" /><div><div style="font-family:var(--font-mono);font-size:11px;color:#F0F0F0;line-height:1.5">' + v.title + '</div><div style="font-family:var(--font-mono);font-size:10px;color:#555;margin-top:4px">' + v.channel + '</div><div style="font-family:var(--font-mono);font-size:10px;color:#FF0000;margin-top:4px">▶ WATCH NOW →</div></div></a>'; }).join('') + '</div></div>' : '';
+  const ytHTML = ytVideos.length ? '<div class="lesson-block"><div class="lesson-block-label">▶ YouTube — watch first</div><div class="lesson-yt-list">' + ytVideos.map(function(v) {
+    const url = escapeHtml(v.href || v.watchUrl || '');
+    const thumb = escapeHtml(youtubeThumbUrl(v));
+    return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="lesson-yt-link">' +
+      '<img src="' + thumb + '" alt="" loading="lazy" referrerpolicy="no-referrer" />' +
+      '<div><div class="lesson-yt-title">' + escapeHtml(v.title) + '</div>' +
+      '<div class="lesson-yt-channel">' + escapeHtml(v.channel) + '</div>' +
+      '<div class="lesson-yt-cta">Watch now →</div></div></a>';
+  }).join('') + '</div></div>' : '';
 
   document.getElementById('teach-content').innerHTML =
-    '<div style="margin-bottom:32px"><div style="font-family:var(--font-mono);font-size:11px;color:#555;letter-spacing:3px;margin-bottom:8px">HOUR ' + hour + ' — NOW STUDYING</div><div style="font-family:var(--font-mono);font-size:26px;font-weight:700;color:#F0F0F0;line-height:1.2">' + (slot.topic || slot.task) + '</div><div style="font-family:var(--font-mono);font-size:11px;color:#444;margin-top:6px">' + slot.task + '</div></div>' +
-    '<div style="padding:20px;background:#0d0d0d;border-left:4px solid #7B5CF5;margin-bottom:24px;font-family:var(--font-mono);font-size:15px;color:#C8C8C8;line-height:1.6;font-style:italic">"' + (lesson.hook || '') + '"</div>' +
+    '<div style="margin-bottom:32px"><div class="section-eyebrow">Hour ' + hour + ' — now studying</div><div style="font-family:var(--font-display);font-size:28px;font-weight:700;color:#fff;line-height:1.2">' + (slot.topic || slot.task) + '</div><div style="font-size:14px;color:#666;margin-top:8px">' + slot.task + '</div></div>' +
+    '<div class="lesson-hook">"' + (lesson.hook || '') + '"</div>' +
     ytHTML +
-    '<div class="lesson-block" style="border-color:#7B5CF5"><div class="lesson-block-label" style="color:#7B5CF5">⚡ CORE CONCEPT</div><div class="lesson-block-body">' + (lesson.coreConcept || '') + '</div></div>' +
-    '<div class="lesson-block" style="border-color:#00FF9C"><div class="lesson-block-label" style="color:#00FF9C">✓ KEY POINTS — WHAT EXAMINER WANTS</div><ul style="margin:12px 0 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">' + (lesson.keyPoints || []).map(function(p, i) { return '<li style="display:flex;gap:12px;align-items:flex-start"><span style="font-family:var(--font-mono);font-size:11px;color:#00FF9C;min-width:20px;margin-top:2px">' + String(i+1).padStart(2,'0') + '</span><span style="font-family:\'DM Sans\',sans-serif;font-size:14px;color:#C8C8C8;line-height:1.6">' + p + '</span></li>'; }).join('') + '</ul></div>' +
-    (lesson.formula ? '<div class="lesson-block" style="border-color:#FFD60A"><div class="lesson-block-label" style="color:#FFD60A">∑ FORMULA / ALGORITHM</div><div style="font-family:var(--font-mono);font-size:14px;color:#FFD60A;background:#0a0a00;padding:16px;margin-top:12px;border:1px solid #2a2a00;white-space:pre-wrap">' + lesson.formula + '</div></div>' : '') +
-    (lesson.diagramSteps ? '<div class="lesson-block" style="border-color:#7B5CF5"><div class="lesson-block-label" style="color:#7B5CF5">📐 HOW TO DRAW THE DIAGRAM</div><div style="font-family:var(--font-mono);font-size:12px;color:#aaa;margin-top:12px;line-height:2;white-space:pre-wrap">' + lesson.diagramSteps + '</div></div>' : '') +
-    '<div class="lesson-block" style="border-color:#FF6B6B"><div class="lesson-block-label" style="color:#FF6B6B">🧠 MEMORY TRICK</div><div class="lesson-block-body" style="color:#FF9999">' + (lesson.memoryTrick || '') + '</div></div>' +
-    '<div class="lesson-block" style="border-color:#FFD60A;background:#0f0e00"><div class="lesson-block-label" style="color:#FFD60A">⚠ EXAM WARNING — DON\'T MAKE THIS MISTAKE</div><div class="lesson-block-body" style="color:#FFD680">' + (lesson.examWarning || '') + '</div></div>' +
-    '<div class="lesson-block" style="border-color:#00FF9C;background:#000f08"><div class="lesson-block-label" style="color:#00FF9C">📝 QUICK QUIZ — LIKELY 2 MARK QUESTION</div><div class="lesson-block-body">' + (lesson.quickQuiz || '') + '</div></div>' +
+    '<div class="lesson-block"><div class="lesson-block-label">⚡ Core concept</div><div class="lesson-block-body">' + (lesson.coreConcept || '') + '</div></div>' +
+    '<div class="lesson-block"><div class="lesson-block-label">✓ Key points</div><ul style="margin:12px 0 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px">' + (lesson.keyPoints || []).map(function(p, i) { return '<li style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:12px;font-weight:700;color:#FF4D00;min-width:24px">' + String(i+1).padStart(2,'0') + '</span><span style="font-size:14px;color:#A0A0A0;line-height:1.6">' + p + '</span></li>'; }).join('') + '</ul></div>' +
+    (lesson.formula ? '<div class="lesson-block"><div class="lesson-block-label">∑ Formula</div><div style="font-size:14px;color:#fbbf24;background:#1a1a1a;padding:16px;margin-top:12px;border-radius:12px;white-space:pre-wrap">' + lesson.formula + '</div></div>' : '') +
+    (lesson.diagramSteps ? '<div class="lesson-block"><div class="lesson-block-label">📐 Diagram steps</div><div style="font-size:13px;color:#A0A0A0;margin-top:12px;line-height:2;white-space:pre-wrap">' + lesson.diagramSteps + '</div></div>' : '') +
+    '<div class="lesson-block"><div class="lesson-block-label">🧠 Memory trick</div><div class="lesson-block-body">' + (lesson.memoryTrick || '') + '</div></div>' +
+    '<div class="lesson-block"><div class="lesson-block-label">⚠ Exam warning</div><div class="lesson-block-body">' + (lesson.examWarning || '') + '</div></div>' +
+    '<div class="lesson-block"><div class="lesson-block-label">📝 Quick quiz</div><div class="lesson-block-body">' + (lesson.quickQuiz || '') + '</div></div>' +
     '<button class="btn-primary" id="teach-done-btn" onclick="markHourDone(' + hour + ')" style="width:100%;margin-top:32px;font-size:16px">✓ MARK HOUR ' + hour + ' DONE & GO BACK →</button>';
 }
 

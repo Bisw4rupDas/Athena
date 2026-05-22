@@ -8,6 +8,11 @@ const bcrypt = require("bcryptjs");
 const session = require("express-session");
 const app = express();
 const PORT = process.env.PORT || 3000;
+const isProduction = process.env.NODE_ENV === "production";
+
+if (isProduction) {
+  app.set("trust proxy", 1);
+}
 
 // ─── SQL.js SQLite Setup (pure JS, no compiler needed) ────────────────────────
 const initSqlJs = require("sql.js");
@@ -89,9 +94,17 @@ app.use(session({
   secret: process.env.SESSION_SECRET || "colosseum-hackathon-secret-2026",
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 } // 7 days
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    secure: isProduction,
+    sameSite: "lax",
+  },
 }));
 app.use(express.static(path.join(__dirname, "public")));
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, service: "colosseum" });
+});
 
 // ─── Auth Middleware ──────────────────────────────────────────────────────────
 function requireAuth(req, res, next) {
@@ -208,7 +221,7 @@ app.get("/leaderboard", requireAuth, (req, res) => {
 
 // ─── Multer (PDF Upload) ──────────────────────────────────────────────────────
 const uploadDir = path.join(__dirname, "uploads");
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
@@ -279,6 +292,121 @@ async function callGroqWithRetry(messages, temp, maxTok) {
     }
   }
   throw new Error("Rate limit retries exhausted");
+}
+
+// ─── YouTube helpers ──────────────────────────────────────────────────────────
+function youtubeThumbnail(item) {
+  const videoId = item?.id?.videoId;
+  const thumbs = item?.snippet?.thumbnails || {};
+  return (
+    thumbs.medium?.url ||
+    thumbs.high?.url ||
+    thumbs.default?.url ||
+    (videoId ? `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg` : "")
+  );
+}
+
+function mapYoutubeSearchItem(item) {
+  const videoId = item?.id?.videoId;
+  if (!videoId || !item?.snippet) return null;
+  const thumb = youtubeThumbnail(item);
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  return {
+    videoId,
+    title: item.snippet.title || "Video",
+    channel: item.snippet.channelTitle || "",
+    thumbnail: thumb,
+    thumb,
+    watchUrl,
+    href: watchUrl,
+  };
+}
+
+function searchYoutubeVideos(query) {
+  if (!process.env.YOUTUBE_API_KEY) {
+    return Promise.resolve({ error: { message: "YouTube API key not configured" } });
+  }
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=4&key=${process.env.YOUTUBE_API_KEY}`;
+  return fetch(url).then((r) => r.json());
+}
+
+function getChannelHint(subjectLower) {
+  if (/data struct|algorithm|os|operating|network|compiler|dbms|software/.test(subjectLower))
+    return "Gate Smashers";
+  if (/electron|circuit|signal|analog|digital|vlsi|microprocess/.test(subjectLower))
+    return "Neso Academy";
+  if (/math|calculus|algebra|statistics|probability|discrete/.test(subjectLower))
+    return "Khan Academy";
+  if (/physics|quantum|optics|electromagnet/.test(subjectLower))
+    return "Physics Wallah";
+  if (/python|java|web|programming|coding/.test(subjectLower))
+    return "CodeWithHarry";
+  return "NPTEL";
+}
+
+/** topicList: [{ name, task? }] or battle-plan topics + schedule */
+async function fetchYoutubeByTopics(topicList, subject, schedule = []) {
+  const results = {};
+  const subjectLower = (subject || "").toLowerCase();
+  const channelHint = getChannelHint(subjectLower);
+  const list = Array.isArray(topicList) ? topicList.slice(0, 6) : [];
+
+  await Promise.all(
+    list.map(async (t) => {
+      const topicName = typeof t === "object" ? (t.name || "") : String(t || "");
+      if (!topicName) return;
+
+      let taskDesc = typeof t === "object" ? (t.task || "") : "";
+      if (!taskDesc && schedule.length) {
+        const slot = schedule.find(
+          (s) => s.topic && s.topic.toLowerCase() === topicName.toLowerCase()
+        );
+        if (slot) taskDesc = slot.task || "";
+      }
+
+      const combined =
+        taskDesc && taskDesc.toLowerCase() !== topicName.toLowerCase()
+          ? `${topicName} ${taskDesc}`
+          : topicName;
+      const query = `${combined} ${subject} ${channelHint}`;
+
+      try {
+        const ytData = await searchYoutubeVideos(query);
+        if (ytData.error) {
+          console.error("YouTube API:", topicName, ytData.error.message || ytData.error);
+          results[topicName] = [];
+          return;
+        }
+
+        const allVids = (ytData.items || []).map(mapYoutubeSearchItem).filter(Boolean);
+        const topicWords = topicName.toLowerCase().split(/\s+/).filter((w) => w.length > 1);
+        const matched = allVids.filter((v) =>
+          topicWords.length
+            ? topicWords.some((w) => v.title.toLowerCase().includes(w))
+            : true
+        );
+        results[topicName] = (matched.length ? matched : allVids).slice(0, 2);
+      } catch (err) {
+        console.error("YouTube fetch failed for", topicName, err.message);
+        results[topicName] = [];
+      }
+    })
+  );
+
+  return results;
+}
+
+function buildYoutubeTopicList(battlePlan) {
+  const topics = battlePlan.topics || [];
+  const schedule = battlePlan.schedule || [];
+  const mustDo = topics.filter((t) => (t.priority || "").toUpperCase().includes("MUST"));
+  const picked = mustDo.length ? mustDo : topics.slice(0, 6);
+  return picked.map((t) => {
+    const slot = schedule.find(
+      (s) => s.topic && s.topic.toLowerCase() === (t.name || "").toLowerCase()
+    );
+    return { name: t.name, task: slot ? slot.task : "" };
+  });
 }
 
 // ─── Clean JSON ───────────────────────────────────────────────────────────────
@@ -398,6 +526,15 @@ sectionB exactly 3 questions. sectionC exactly 2 questions.`;
       sectionA, sectionB, sectionC,
     };
 
+    try {
+      const ytTopics = buildYoutubeTopicList(battlePlan);
+      battlePlan.youtubeByTopic = await fetchYoutubeByTopics(ytTopics, subject, battlePlan.schedule || []);
+      console.log("YouTube topics loaded:", Object.keys(battlePlan.youtubeByTopic).length);
+    } catch (ytErr) {
+      console.error("YouTube during generate:", ytErr.message);
+      battlePlan.youtubeByTopic = {};
+    }
+
     res.json({ success: true, data: battlePlan });
   } catch (err) {
     console.error("Generate error:", err);
@@ -408,55 +545,13 @@ sectionB exactly 3 questions. sectionC exactly 2 questions.`;
 // ─── ROUTE 2: POST /youtube ──────────────────────────────────────────────────
 app.post("/youtube", requireAuth, async (req, res) => {
   try {
-    const { topics, subject, university } = req.body;
-    const subjectLower = (subject || "").toLowerCase();
-
-    let channelHint = "NPTEL";
-    if (/data struct|algorithm|os|operating|network|compiler|dbms|software eng/.test(subjectLower))
-      channelHint = "Gate Smashers";
-    else if (/electron|circuit|signal|analog|digital|vlsi|microprocess/.test(subjectLower))
-      channelHint = "Neso Academy";
-    else if (/math|calculus|algebra|statistics|probability|discrete/.test(subjectLower))
-      channelHint = "Khan Academy";
-    else if (/physics|quantum|optics|electromagnet/.test(subjectLower))
-      channelHint = "Physics Wallah";
-    else if (/python|java|web|programming|coding/.test(subjectLower))
-      channelHint = "CodeWithHarry";
-
-    const topicList = Array.isArray(topics) ? topics.slice(0, 6) : [{ name: topics, task: "" }];
-    const results = {};
-
-    for (const t of topicList) {
-      const topicName = typeof t === "object" ? (t.name || "") : t;
-      const taskDesc  = typeof t === "object" ? (t.task  || "") : "";
-      if (!topicName) continue;
-
-      const combined = taskDesc && taskDesc.toLowerCase() !== topicName.toLowerCase()
-        ? `${topicName} ${taskDesc}` : topicName;
-      const query = `${combined} ${subject} ${channelHint}`;
-
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=4&key=${process.env.YOUTUBE_API_KEY}`;
-      const ytRes  = await fetch(url);
-      const ytData = await ytRes.json();
-
-      const allVids = (ytData.items || []).map((item) => ({
-        videoId:   item.id.videoId,
-        title:     item.snippet.title,
-        channel:   item.snippet.channelTitle,
-        thumbnail: item.snippet.thumbnails.medium.url,
-        watchUrl:  `https://www.youtube.com/watch?v=${item.id.videoId}`,
-        href:      `https://www.youtube.com/watch?v=${item.id.videoId}`,
-      }));
-
-      const topicWords = topicName.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-      const matched = allVids.filter(v => topicWords.some(w => v.title.toLowerCase().includes(w)));
-      results[topicName] = (matched.length ? matched : allVids).slice(0, 2);
-    }
-
-    res.json({ success: true, data: results });
+    const { topics, subject } = req.body;
+    const topicList = Array.isArray(topics) ? topics : topics ? [{ name: topics, task: "" }] : [];
+    const data = await fetchYoutubeByTopics(topicList, subject, []);
+    res.json({ success: true, data });
   } catch (err) {
     console.error("YouTube error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
@@ -529,39 +624,9 @@ Respond ONLY valid JSON no markdown:
 
     let ytVideos = [];
     try {
-      const subjectLower = (subject || "").toLowerCase();
-      let channelHint = "NPTEL";
-      if (/data struct|algorithm|os|operating|network|compiler|dbms|database|software/.test(subjectLower))
-        channelHint = "Gate Smashers";
-      else if (/electron|circuit|signal|analog|digital|vlsi|microprocess/.test(subjectLower))
-        channelHint = "Neso Academy";
-      else if (/math|calculus|algebra|statistics|probability|discrete/.test(subjectLower))
-        channelHint = "Khan Academy";
-      else if (/physics|quantum|optics|electromagnet/.test(subjectLower))
-        channelHint = "Physics Wallah";
-      else if (/python|java|web|android|programming|coding/.test(subjectLower))
-        channelHint = "CodeWithHarry";
-
-      const topicClean = topic.trim();
-      const taskClean  = (task || "").trim();
-      const combined   = taskClean && taskClean.toLowerCase() !== topicClean.toLowerCase()
-        ? `${topicClean} ${taskClean}` : topicClean;
-
-      const query = `${combined} ${subject} ${channelHint}`;
-      const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&q=${encodeURIComponent(query)}&type=video&maxResults=3&key=${process.env.YOUTUBE_API_KEY}`;
-      const ytRes = await fetch(url);
-      const ytData = await ytRes.json();
-
-      const topicWords = topicClean.toLowerCase().split(/\s+/).filter(w => w.length > 1);
-      const allVideos  = (ytData.items || []).map((item) => ({
-        title:   item.snippet.title,
-        channel: item.snippet.channelTitle,
-        thumb:   item.snippet.thumbnails.medium.url,
-        href:    `https://www.youtube.com/watch?v=${item.id.videoId}`,
-      }));
-
-      const matched = allVideos.filter(v => topicWords.some(w => v.title.toLowerCase().includes(w)));
-      ytVideos = (matched.length ? matched : allVideos).slice(0, 2);
+      const topicKey = (!topic || topic.toLowerCase() === "all") ? task : topic;
+      const byTopic = await fetchYoutubeByTopics([{ name: topicKey, task: task || "" }], subject, []);
+      ytVideos = byTopic[topicKey] || Object.values(byTopic)[0] || [];
     } catch (ytErr) {
       console.error("YT fetch in /teach:", ytErr.message);
     }
@@ -575,8 +640,8 @@ Respond ONLY valid JSON no markdown:
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`⚔️  COLOSSEUM running at http://localhost:${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`⚔️  COLOSSEUM running on port ${PORT} (${isProduction ? "production" : "development"})`);
   });
 }).catch(err => {
   console.error("DB init failed:", err);
