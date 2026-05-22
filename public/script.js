@@ -974,8 +974,11 @@ async function submitExamAnswer(timeout) {
     examScores.push({ ...grading, question: q.question, section: q.section });
 
     // Award exam points
-    const examPts = Math.round((grading.scored / q.marks) * 100);
-    if (examPts > 0) addPoints(examPts, 'Self Exam — Q' + (examIndex + 1) + ' scored ' + grading.scored + '/' + q.marks);
+    // Flat +50 for attempting the question
+    addPoints(50, 'Self Exam — Completed Q' + (examIndex + 1));
+    // Bonus based on how well you scored
+    const examPts = Math.round((grading.scored / q.marks) * 50);
+    if (examPts > 0) addPoints(examPts, 'Self Exam — Score bonus Q' + (examIndex + 1) + ' (' + grading.scored + '/' + q.marks + ')');
 
     updateExamScore();
     showExamFeedback(grading, q.marks);
@@ -1301,7 +1304,14 @@ function renderLesson(hour, slot, lesson) {
 
 function markHourDone(hour) {
   const doneEl = document.getElementById('sched-done-' + hour);
-  if (doneEl) doneEl.classList.remove('hidden');
+  if (doneEl) {
+    if (doneEl.classList.contains('hidden')) {
+      // Only award points the first time (not on repeat visits)
+      pointsData.stats.topicsDone = (pointsData.stats.topicsDone || 0) + 1;
+      addPoints(50, 'Completed Hour ' + hour + ' lesson');
+    }
+    doneEl.classList.remove('hidden');
+  }
   showScreen('screen-plan');
 }
 
