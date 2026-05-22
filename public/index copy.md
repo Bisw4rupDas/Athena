@@ -25,145 +25,6 @@
 <body>
 
 <!-- ══════════════════════════════════════════════════════════
-     SCREEN 0a — LOGIN / REGISTER
-══════════════════════════════════════════════════════════ -->
-<div id="screen-auth" class="screen active">
-  <div class="auth-page">
-    <div class="auth-logo">⚔️ COLOSSEUM</div>
-    <div class="auth-tagline">AI EXAM INTELLIGENCE ENGINE</div>
-
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-login" onclick="switchAuthTab('login')">LOGIN</button>
-      <button class="auth-tab" id="tab-register" onclick="switchAuthTab('register')">REGISTER</button>
-    </div>
-
-    <div class="auth-card">
-      <!-- Login Form -->
-      <div id="auth-login-form">
-        <div class="field-group">
-          <label class="field-label">EMAIL</label>
-          <input type="email" id="login-email" class="field-input" placeholder="your@email.com" autocomplete="email" />
-        </div>
-        <div class="field-group">
-          <label class="field-label">PASSWORD</label>
-          <input type="password" id="login-password" class="field-input" placeholder="••••••••" autocomplete="current-password" />
-        </div>
-        <div id="login-error" class="auth-error hidden"></div>
-        <button class="btn-primary" onclick="handleLogin()">
-          <span class="btn-text">⚔️ ENTER THE COLOSSEUM</span>
-          <span class="btn-arrow">→</span>
-        </button>
-      </div>
-
-      <!-- Register Form -->
-      <div id="auth-register-form" class="hidden">
-        <div class="field-group">
-          <label class="field-label">FULL NAME</label>
-          <input type="text" id="reg-name" class="field-input" placeholder="Your name" autocomplete="name" />
-        </div>
-        <div class="field-group">
-          <label class="field-label">EMAIL</label>
-          <input type="email" id="reg-email" class="field-input" placeholder="your@email.com" autocomplete="email" />
-        </div>
-        <div class="field-group">
-          <label class="field-label">PASSWORD <span class="field-hint">(min 6 characters)</span></label>
-          <input type="password" id="reg-password" class="field-input" placeholder="••••••••" autocomplete="new-password" />
-        </div>
-        <div id="reg-error" class="auth-error hidden"></div>
-        <button class="btn-primary" onclick="handleRegister()">
-          <span class="btn-text">🚀 CREATE ACCOUNT</span>
-          <span class="btn-arrow">→</span>
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════
-     SCREEN 0b — DASHBOARD
-══════════════════════════════════════════════════════════ -->
-<div id="screen-dashboard" class="screen">
-  <nav class="plan-nav">
-    <div class="plan-nav-logo">⚔️ COLOSSEUM</div>
-    <div class="plan-nav-actions">
-      <span id="dash-username" class="nav-username"></span>
-      <button class="btn-nav btn-nav-ghost" onclick="handleLogout()">LOGOUT →</button>
-    </div>
-  </nav>
-  <div class="dashboard-page">
-    <div class="dash-hero">
-      <div class="dash-welcome" id="dash-welcome">WELCOME BACK, WARRIOR</div>
-      <div class="dash-sub">Your battle stats are ready. Time to fight.</div>
-    </div>
-
-    <div class="dash-stats-row">
-      <div class="dash-stat-card">
-        <div class="dash-stat-icon">⚡</div>
-        <div class="dash-stat-val" id="dash-pts">0</div>
-        <div class="dash-stat-lbl">TOTAL POINTS</div>
-      </div>
-      <div class="dash-stat-card">
-        <div class="dash-stat-icon">🎯</div>
-        <div class="dash-stat-val" id="dash-topics">0</div>
-        <div class="dash-stat-lbl">TOPICS DONE</div>
-      </div>
-      <div class="dash-stat-card">
-        <div class="dash-stat-icon">⏱</div>
-        <div class="dash-stat-val" id="dash-mins">0</div>
-        <div class="dash-stat-lbl">MINS STUDIED</div>
-      </div>
-      <div class="dash-stat-card">
-        <div class="dash-stat-icon">🏆</div>
-        <div class="dash-stat-val" id="dash-rank">—</div>
-        <div class="dash-stat-lbl">LEADERBOARD RANK</div>
-      </div>
-    </div>
-
-    <div class="dash-actions">
-      <button class="dash-action-card" onclick="showScreen('screen-form')">
-        <div class="dash-action-icon">⚔️</div>
-        <div class="dash-action-title">NEW BATTLE PLAN</div>
-        <div class="dash-action-sub">Generate AI strategy for your exam</div>
-      </button>
-      <button class="dash-action-card" onclick="showLeaderboard()">
-        <div class="dash-action-icon">🏆</div>
-        <div class="dash-action-title">LEADERBOARD</div>
-        <div class="dash-action-sub">See how you rank against others</div>
-      </button>
-      <button class="dash-action-card" onclick="showPointsScreenFromDash()">
-        <div class="dash-action-icon">💰</div>
-        <div class="dash-action-title">WAR CHEST</div>
-        <div class="dash-action-sub">View points and redeem rewards</div>
-      </button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════
-     SCREEN 0c — LEADERBOARD
-══════════════════════════════════════════════════════════ -->
-<div id="screen-leaderboard" class="screen">
-  <nav class="plan-nav">
-    <div class="plan-nav-logo">🏆 LEADERBOARD</div>
-    <div class="plan-nav-actions">
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">← DASHBOARD</button>
-    </div>
-  </nav>
-  <div class="lb-page">
-    <div class="lb-my-rank-card" id="lb-my-rank-card">
-      <div class="lb-my-label">YOUR RANK</div>
-      <div class="lb-my-num" id="lb-my-rank">#—</div>
-      <div class="lb-my-pts" id="lb-my-pts">0 PTS</div>
-    </div>
-
-    <div class="lb-table-wrap">
-      <div class="lb-loading" id="lb-loading">Loading leaderboard...</div>
-      <div id="lb-rows" class="lb-rows"></div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════════════════
      SCREEN 1 — PANIC FORM
 ══════════════════════════════════════════════════════════ -->
 <div id="screen-form" class="screen active">
@@ -291,8 +152,7 @@
       <button class="btn-nav" onclick="showWarRoom()">🎯 WAR ROOM</button>
       <button class="btn-nav" onclick="showSelfExam()">📝 SELF EXAM</button>
       <button class="btn-nav" onclick="downloadPDF()">⬇ DOWNLOAD</button>
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>
-      <button class="btn-nav" onclick="showLeaderboard()">🏆 LEADERBOARD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="goHome()">← NEW PLAN</button>
       <button class="btn-nav btn-nav-points" onclick="showPointsScreen()">⚡ WAR CHEST</button>
     </div>
   </nav>
@@ -372,7 +232,7 @@
   <nav class="plan-nav">
     <div class="plan-nav-logo">🎯 WAR ROOM</div>
     <div class="plan-nav-actions">
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BATTLE PLAN</button>
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
     </div>
   </nav>
   <div class="warroom-layout">
@@ -404,8 +264,7 @@
   <nav class="plan-nav">
     <div class="plan-nav-logo">📝 SELF EXAM</div>
     <div class="plan-nav-actions">
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BATTLE PLAN</button>
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← EXIT EXAM</button>
     </div>
   </nav>
   <div class="exam-layout">
@@ -441,7 +300,6 @@
     <div class="results-actions">
       <button class="btn-primary" onclick="showSelfExam()">↩ RETAKE EXAM</button>
       <button class="btn-secondary" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
-      <button class="btn-secondary" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>
       <button class="btn-secondary" onclick="goHome()">⚔️ NEW BATTLE PLAN</button>
     </div>
   </div>
@@ -455,8 +313,7 @@
     <div class="plan-nav-logo">📋 PREDICTED PAPER + ANSWERS</div>
     <div class="plan-nav-actions">
       <button class="btn-nav" onclick="downloadPaperPDF()">⬇ DOWNLOAD</button>
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BATTLE PLAN</button>
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
     </div>
   </nav>
   <div class="plan-content" id="paper-page-content" style="max-width:860px;margin:0 auto;padding:40px 24px;"></div>
@@ -469,8 +326,7 @@
   <nav class="plan-nav">
     <div class="plan-nav-logo" id="teach-nav-title">📚 LESSON</div>
     <div class="plan-nav-actions">
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BATTLE PLAN</button>
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
     </div>
   </nav>
   <div class="plan-content" style="max-width:780px;margin:0 auto;padding:40px 24px" id="teach-content">
@@ -487,8 +343,7 @@
   <nav class="plan-nav">
     <div class="plan-nav-logo" style="font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:0.06em">⚔ WAR CHEST</div>
     <div class="plan-nav-actions">
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BATTLE PLAN</button>
-      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-dashboard')">🏠 DASHBOARD</button>
+      <button class="btn-nav btn-nav-ghost" onclick="showScreen('screen-plan')">← BACK TO PLAN</button>
     </div>
   </nav>
 

@@ -13,76 +13,6 @@ let examTimerInterval = null;
 let examTimeLeft = 0;
 let wrTimerInterval = null;
 let wrSeconds = 0;
-
-// ── Global Study Timer ──────────────────────────────────────
-let globalStudyInterval = null;
-let globalStudySeconds = 0;
-let isOnBreak = false;
-
-function startGlobalStudyTimer() {
-  if (globalStudyInterval) return; // already running
-  globalStudyInterval = setInterval(() => {
-    if (isOnBreak) return; // paused
-    globalStudySeconds++;
-    // +2 tokens every 30 seconds of active study
-    if (globalStudySeconds % 30 === 0) {
-      pointsData.stats.minsStudied = (pointsData.stats.minsStudied || 0) + 0.5;
-      addPoints(2, 'Study time — 30 seconds active');
-    }
-    updateBreakBtnUI();
-  }, 1000);
-}
-
-function stopGlobalStudyTimer() {
-  if (globalStudyInterval) { clearInterval(globalStudyInterval); globalStudyInterval = null; }
-}
-
-function toggleBreak() {
-  isOnBreak = !isOnBreak;
-  SafeBrowser.setBreak(isOnBreak);
-  updateBreakBtnUI();
-  if (isOnBreak) {
-    showPointsToast(0, ''); // suppress
-    const t = document.getElementById('pts-toast'); if (t) t.remove();
-    showBreakToast();
-  } else {
-    showResumeToast();
-  }
-}
-
-function showBreakToast() {
-  const existing = document.getElementById('pts-toast'); if (existing) existing.remove();
-  const toast = document.createElement('div');
-  toast.id = 'pts-toast';
-  toast.style.cssText = 'position:fixed;bottom:24px;right:16px;z-index:9999;background:#0d1022;border:1px solid #1e4060;border-radius:12px;padding:10px 16px;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.06em;color:#58a6ff;box-shadow:0 4px 24px rgba(0,0,0,0.6);animation:wcFadeIn 0.3s ease';
-  toast.textContent = '⏸ BREAK MODE — Tokens & penalties paused';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 3000);
-}
-
-function showResumeToast() {
-  const existing = document.getElementById('pts-toast'); if (existing) existing.remove();
-  const toast = document.createElement('div');
-  toast.id = 'pts-toast';
-  toast.style.cssText = 'position:fixed;bottom:24px;right:16px;z-index:9999;background:#0d1022;border:1px solid #1e4020;border-radius:12px;padding:10px 16px;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:0.06em;color:#3fb950;box-shadow:0 4px 24px rgba(0,0,0,0.6);animation:wcFadeIn 0.3s ease';
-  toast.textContent = '▶ RESUMED — Earning tokens again';
-  document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), 2500);
-}
-
-function updateBreakBtnUI() {
-  const btn = document.getElementById('global-break-btn');
-  if (!btn) return;
-  if (isOnBreak) {
-    btn.textContent = '▶ RESUME STUDY';
-    btn.style.borderColor = '#3fb950';
-    btn.style.color = '#3fb950';
-  } else {
-    btn.textContent = '⏸ TAKE A BREAK';
-    btn.style.borderColor = '#58a6ff';
-    btn.style.color = '#58a6ff';
-  }
-}
 let wrTopicIndex = 0;
 let wrTopicDone = new Set();
 let freqChart = null;
@@ -246,26 +176,22 @@ function addPoints(amount, reason) {
 }
 
 function showPointsToast(amount, reason) {
-  if (amount === 0) return;
   const existing = document.getElementById('pts-toast');
   if (existing) existing.remove();
-  const isLoss = amount < 0;
   const toast = document.createElement('div');
   toast.id = 'pts-toast';
   toast.style.cssText = [
     'position:fixed','bottom:24px','right:16px','z-index:9999',
-    'background:#0d1022',
-    'border:1px solid ' + (isLoss ? '#60203a' : '#1e3060'),
+    'background:#0d1022','border:1px solid #1e3060',
     'border-radius:12px','padding:10px 16px',
     'font-family:var(--font-mono)','font-size:12px',
     'font-weight:700','letter-spacing:0.06em',
-    'color:' + (isLoss ? '#e63946' : '#22c578'),
-    'box-shadow:0 4px 24px rgba(0,0,0,0.6)',
+    'color:#22c578','box-shadow:0 4px 24px rgba(0,0,0,0.6)',
     'animation:wcFadeIn 0.3s ease'
   ].join(';');
-  toast.textContent = (isLoss ? '' : '+') + amount + ' PTS — ' + reason;
+  toast.textContent = '+' + amount + ' PTS — ' + reason;
   document.body.appendChild(toast);
-  setTimeout(() => toast.remove(), isLoss ? 3500 : 2800);
+  setTimeout(() => toast.remove(), 2800);
 }
 
 // Inject toast animation once
@@ -435,8 +361,6 @@ function redeemReward(id, cost, value) {
 }
 
 // ─── Screen Management ────────────────────────────────────
-const STUDY_SCREENS = ['screen-plan', 'screen-warroom', 'screen-teach', 'screen-exam', 'screen-paper'];
-
 function showScreen(id) {
   SafeBrowser.setScreen(id);
   document.querySelectorAll('.screen').forEach(function(s) {
@@ -446,38 +370,6 @@ function showScreen(id) {
   const el = document.getElementById(id);
   if (el) { el.style.display = 'block'; el.classList.add('active'); }
   window.scrollTo(0, 0);
-
-  // Start/stop global study timer based on screen
-  if (STUDY_SCREENS.includes(id)) {
-    startGlobalStudyTimer();
-    injectBreakButton();
-  } else {
-    stopGlobalStudyTimer();
-    removeBreakButton();
-    if (isOnBreak) { isOnBreak = false; SafeBrowser.setBreak(false); }
-  }
-}
-
-function injectBreakButton() {
-  if (document.getElementById('global-break-btn')) { updateBreakBtnUI(); return; }
-  const btn = document.createElement('button');
-  btn.id = 'global-break-btn';
-  btn.style.cssText = [
-    'position:fixed', 'bottom:24px', 'left:50%', 'transform:translateX(-50%)',
-    'z-index:8888', 'background:#0d1117', 'border:1px solid #58a6ff',
-    'border-radius:20px', 'padding:8px 20px',
-    'font-family:var(--font-mono)', 'font-size:11px', 'font-weight:700',
-    'letter-spacing:0.08em', 'color:#58a6ff', 'cursor:pointer',
-    'box-shadow:0 4px 20px rgba(0,0,0,0.5)', 'animation:wcFadeIn 0.3s ease'
-  ].join(';');
-  btn.textContent = '⏸ TAKE A BREAK';
-  btn.onclick = toggleBreak;
-  document.body.appendChild(btn);
-}
-
-function removeBreakButton() {
-  const btn = document.getElementById('global-break-btn');
-  if (btn) btn.remove();
 }
 
 function goHome() {
@@ -880,9 +772,12 @@ function toggleTimer() {
     btn.textContent = '▶ RESUME';
   } else {
     wrTimerInterval = setInterval(function() {
-      if (isOnBreak) return; // global break pauses war room timer too
       wrSeconds++;
-      // war room timer now handled by global study timer — no double points here
+      // +1 pt per minute studied
+      if (wrSeconds % 60 === 0) {
+        pointsData.stats.minsStudied = (pointsData.stats.minsStudied || 0) + 1;
+        addPoints(1, 'Study timer — 1 min active');
+      }
       const m = String(Math.floor(wrSeconds / 60)).padStart(2, '0');
       const s = String(wrSeconds % 60).padStart(2, '0');
       document.getElementById('wr-timer').textContent = m + ':' + s;
@@ -1169,7 +1064,6 @@ const SafeBrowser = (() => {
 
   function deductTokens(reason) {
     if (isExempt()) return;
-    if (typeof isOnBreak !== 'undefined' && isOnBreak) return; // paused during break
     addPoints(-PENALTY, reason);
   }
 
@@ -1205,7 +1099,6 @@ const SafeBrowser = (() => {
     isPageHidden = true;
     clearTimeout(inactivityTimer);
     clearTimeout(warningTimer);
-    if (typeof isOnBreak !== 'undefined' && isOnBreak) return; // paused
     deductTokens('👁️ Left the page — −10 tokens');
   }
 
@@ -1239,16 +1132,7 @@ const SafeBrowser = (() => {
     }
   }
 
-  function setBreak(state) {
-    if (state) {
-      clearTimeout(inactivityTimer);
-      clearTimeout(warningTimer);
-    } else {
-      resetInactivity();
-    }
-  }
-
-  return { init, setScreen, setBreak };
+  return { init, setScreen };
 })();
 
 SafeBrowser.init();
