@@ -11,6 +11,17 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function apiUrl(path) {
+  const base = (window.COLOSSEUM_CONFIG && window.COLOSSEUM_CONFIG.API_BASE) || "";
+  const p = path.startsWith("/") ? path : "/" + path;
+  return base + p;
+}
+
+function apiFetch(url, options) {
+  const opts = Object.assign({ credentials: "include" }, options || {});
+  return fetch(apiUrl(url), opts);
+}
+
 function youtubeThumbUrl(v) {
   if (v.thumbnail) return v.thumbnail;
   if (v.thumb) return v.thumb;
@@ -139,7 +150,7 @@ async function handleLogin() {
   errEl.classList.add('hidden');
   if (!email || !password) { errEl.textContent = 'Please fill in all fields'; errEl.classList.remove('hidden'); return; }
   try {
-    const res = await fetch('/auth/login', {
+    const res = await apiFetch('/auth/login', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
@@ -159,7 +170,7 @@ async function handleRegister() {
   errEl.classList.add('hidden');
   if (!name || !email || !password) { errEl.textContent = 'Please fill in all fields'; errEl.classList.remove('hidden'); return; }
   try {
-    const res = await fetch('/auth/register', {
+    const res = await apiFetch('/auth/register', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password })
     });
@@ -172,7 +183,7 @@ async function handleRegister() {
 }
 
 async function handleLogout() {
-  await fetch('/auth/logout', { method: 'POST' });
+  await apiFetch('/auth/logout', { method: 'POST' });
   currentUser = null;
   pointsData = { total: 0, history: [], stats: { minsStudied: 0, topicsDone: 0, timesRedeemed: 0 } };
   showScreen('screen-auth');
@@ -188,7 +199,7 @@ async function showDashboard() {
 
   // fetch rank
   try {
-    const res = await fetch('/leaderboard');
+    const res = await apiFetch('/leaderboard');
     const data = await res.json();
     document.getElementById('dash-rank').textContent = '#' + data.myRank;
   } catch(e) { document.getElementById('dash-rank').textContent = '—'; }
@@ -207,7 +218,7 @@ async function showLeaderboard() {
   document.getElementById('lb-loading').style.display = 'block';
   document.getElementById('lb-rows').innerHTML = '';
   try {
-    const res = await fetch('/leaderboard');
+    const res = await apiFetch('/leaderboard');
     const data = await res.json();
     document.getElementById('lb-my-rank').textContent = '#' + data.myRank;
     document.getElementById('lb-my-pts').textContent = data.myPoints.toLocaleString() + ' PTS';
@@ -234,7 +245,7 @@ let pointsData = { total: 0, history: [], stats: { minsStudied: 0, topicsDone: 0
 
 async function loadProgressFromServer() {
   try {
-    const res = await fetch('/progress');
+    const res = await apiFetch('/progress');
     const data = await res.json();
     pointsData = {
       total: data.total || 0,
@@ -263,7 +274,7 @@ const CANTEEN_REWARDS = [
 
 function savePoints() {
   // Save to server (fire-and-forget)
-  fetch('/progress', {
+  apiFetch('/progress', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(pointsData)
@@ -629,7 +640,7 @@ async function generateBattlePlan() {
     selectedFiles.forEach(function(f) { fd.append('pyqs', f); });
 
     const demoMode = new URLSearchParams(window.location.search).get('demo') === 'true';
-    const res  = await fetch('/generate' + (demoMode ? '?demo=true' : ''), { method: 'POST', body: fd, credentials: 'same-origin' });
+    const res  = await apiFetch('/generate' + (demoMode ? '?demo=true' : ''), { method: 'POST', body: fd });
     const json = await res.json();
 
     clearInterval(ticker);
@@ -830,10 +841,9 @@ async function loadYoutube(skipIfCached) {
       return;
     }
 
-    const res = await fetch('/youtube', {
+    const res = await apiFetch('/youtube', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
       body: JSON.stringify({ topics: topicObjs, subject: studentData.subject, university: studentData.university }),
     });
     const json = await res.json().catch(function() { return {}; });
@@ -871,7 +881,7 @@ async function sendBhaiya() {
   bhaiyaHistory.push({ role: 'user', content: question });
 
   try {
-    const res  = await fetch('/bhaiya', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, subject: studentData.subject, university: studentData.university, history: bhaiyaHistory }) });
+    const res  = await apiFetch('/bhaiya', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, subject: studentData.subject, university: studentData.university, history: bhaiyaHistory }) });
     const json = await res.json();
     document.getElementById('bhaiya-typing')?.remove();
     const reply = json.reply || 'Arrey yaar, kuch gadbad ho gayi. Try again!';
@@ -1055,7 +1065,7 @@ async function submitExamAnswer(timeout) {
   document.getElementById('exam-submit-btn').textContent = 'GRADING...';
 
   try {
-    const res  = await fetch('/grade', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q.question, answer, maxMarks: q.marks, subject: studentData.subject }) });
+    const res  = await apiFetch('/grade', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question: q.question, answer, maxMarks: q.marks, subject: studentData.subject }) });
     const json = await res.json();
     const grading = json.data || { scored: 0, maxMarks: q.marks, modelAnswer: '—', missed: '—', tip: '—' };
 
@@ -1358,7 +1368,7 @@ async function openLesson(hour) {
   if (lessonCache[hour]) { renderLesson(hour, slot, lessonCache[hour]); return; }
 
   try {
-    const res  = await fetch('/teach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: (!slot.topic || slot.topic.toLowerCase() === 'all') ? slot.task : slot.topic, task: slot.task, subject: studentData.subject, university: studentData.university, hours: studentData.hours }) });
+    const res  = await apiFetch('/teach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ topic: (!slot.topic || slot.topic.toLowerCase() === 'all') ? slot.task : slot.topic, task: slot.task, subject: studentData.subject, university: studentData.university, hours: studentData.hours }) });
     const json = await res.json();
     if (!json.success) throw new Error(json.error);
     lessonCache[hour] = { ...json.data, ytVideos: json.ytVideos || [] };
@@ -1414,7 +1424,7 @@ function markHourDone(hour) {
 // ─── Init ─────────────────────────────────────────────────
 (async function() {
   try {
-    const res = await fetch('/auth/me');
+    const res = await apiFetch('/auth/me');
     const data = await res.json();
     if (data.loggedIn) {
       currentUser = data.user;

@@ -9,14 +9,18 @@ const session = require("express-session");
 const app = express();
 const PORT = process.env.PORT || 3000;
 const isProduction = process.env.NODE_ENV === "production";
+const isVercel = !!process.env.VERCEL;
+const isCrossOriginFrontend = !!(process.env.FRONTEND_URL || process.env.CORS_ORIGINS);
 
-if (isProduction) {
+if (isProduction || isVercel) {
   app.set("trust proxy", 1);
 }
 
 // ─── SQL.js SQLite Setup (pure JS, no compiler needed) ────────────────────────
 const initSqlJs = require("sql.js");
-const DB_PATH = path.join(__dirname, "colosseum.db");
+const DB_PATH = isVercel
+  ? path.join("/tmp", "colosseum.db")
+  : path.join(__dirname, "colosseum.db");
 
 let db;
 
@@ -88,7 +92,17 @@ const dbRun = (sql, params = []) => {
 };
 
 // ─── Middleware ───────────────────────────────────────────────────────────────
-app.use(cors());
+const corsOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: corsOrigins.length ? corsOrigins : true,
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: "50mb" }));
 app.use(session({
   secret: process.env.SESSION_SECRET || "colosseum-hackathon-secret-2026",
@@ -96,10 +110,25 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     maxAge: 7 * 24 * 60 * 60 * 1000,
-    secure: isProduction,
-    sameSite: "lax",
+    secure: isProduction || isVercel || isCrossOriginFrontend,
+    sameSite: isCrossOriginFrontend ? "none" : "lax",
   },
 }));
+
+let dbReady = null;
+function ensureDb() {
+  if (!dbReady) dbReady = initDb();
+  return dbReady;
+}
+app.use(async (req, res, next) => {
+  try {
+    await ensureDb();
+    next();
+  } catch (err) {
+    console.error("DB init error:", err);
+    res.status(500).json({ error: "Database unavailable" });
+  }
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 app.get("/health", (req, res) => {
@@ -220,7 +249,9 @@ app.get("/leaderboard", requireAuth, (req, res) => {
 });
 
 // ─── Multer (PDF Upload) ──────────────────────────────────────────────────────
-const uploadDir = path.join(__dirname, "uploads");
+const uploadDir = isVercel
+  ? path.join("/tmp", "uploads")
+  : path.join(__dirname, "uploads");
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -638,12 +669,18 @@ Respond ONLY valid JSON no markdown:
   }
 });
 
-// ─── Start Server ─────────────────────────────────────────────────────────────
-initDb().then(() => {
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`⚔️  COLOSSEUM running on port ${PORT} (${isProduction ? "production" : "development"})`);
-  });
-}).catch(err => {
-  console.error("DB init failed:", err);
-  process.exit(1);
-});
+// ─── Export for Vercel serverless / local start ───────────────────────────────
+module.exports = app;
+
+if (!isVercel) {
+  ensureDb()
+    .then(() => {
+      app.listen(PORT, "0.0.0.0", () => {
+        console.log(`⚔️  COLOSSEUM running on port ${PORT} (${isProduction ? "production" : "development"})`);
+      });
+    })
+    .catch((err) => {
+      console.error("DB init failed:", err);
+      process.exit(1);
+    });
+}
